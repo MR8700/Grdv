@@ -58,6 +58,7 @@ module.exports = {
   },
 
   mail: {
+    enabled: String(process.env.MAIL_ENABLED || 'false').toLowerCase() === 'true',
     token: process.env.MAIL_TOKEN || '',
     fromAddress: process.env.MAIL_FROM_ADDRESS || 'hello@demomailtrap.co',
     fromName: process.env.MAIL_FROM_NAME || 'Clinique',

@@ -1,49 +1,61 @@
 'use strict';
 
-const { sendMail }   = require('../config/mailer');
+const { sendMail, isEmailEnabled } = require('../config/mailer');
 const { Notification } = require('../models');
 const { TYPE_NOTIFICATION } = require('../utils/constants.util');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Service email — orchestre l'envoi Mailtrap ET la persistance en base
-// Chaque envoi crée une ligne dans la table notifications (canal email)
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function envoyerRappelRdv({ id_user, id_rdv, emailDestinataire, data }) {
-  // 1. Envoi email via Mailtrap SDK
-  await sendMail(emailDestinataire, 'rappelRdv', data);
-
-  // 2. Persistance dans notifications
+async function persistNotification({ id_user, id_rdv = null, type_notification, message }) {
   return Notification.create({
     id_user,
     id_rdv,
-    type_notification : TYPE_NOTIFICATION.RAPPEL,
-    message           : `Rappel RDV du ${data.dateRdv} à ${data.heureRdv} avec Dr ${data.nomMedecin}.`,
-    lu                : false,
+    type_notification,
+    message,
+    lu: false,
   });
+}
+
+async function trySendMail(emailDestinataire, templateKey, data) {
+  try {
+    return await sendMail(emailDestinataire, templateKey, data);
+  } catch (error) {
+    console.warn(`[MAIL] Envoi ignore pour ${templateKey}: ${error.message}`);
+    return { skipped: true, reason: 'send_failed' };
+  }
+}
+
+async function envoyerRappelRdv({ id_user, id_rdv, emailDestinataire, data }) {
+  const notification = await persistNotification({
+    id_user,
+    id_rdv,
+    type_notification: TYPE_NOTIFICATION.RAPPEL,
+    message: `Rappel RDV du ${data.dateRdv} a ${data.heureRdv} avec Dr ${data.nomMedecin}.`,
+  });
+
+  const delivery = await trySendMail(emailDestinataire, 'rappelRdv', data);
+  return { notification, delivery, emailEnabled: isEmailEnabled() };
 }
 
 async function envoyerUrgence({ id_user, emailDestinataire, data }) {
-  await sendMail(emailDestinataire, 'urgence', data);
-
-  return Notification.create({
+  const notification = await persistNotification({
     id_user,
-    type_notification : TYPE_NOTIFICATION.URGENCE,
-    message           : data.message,
-    lu                : false,
+    type_notification: TYPE_NOTIFICATION.URGENCE,
+    message: data.message,
   });
+
+  const delivery = await trySendMail(emailDestinataire, 'urgence', data);
+  return { notification, delivery, emailEnabled: isEmailEnabled() };
 }
 
 async function envoyerInformation({ id_user, id_rdv = null, emailDestinataire, data }) {
-  await sendMail(emailDestinataire, 'information', data);
-
-  return Notification.create({
+  const notification = await persistNotification({
     id_user,
     id_rdv,
-    type_notification : TYPE_NOTIFICATION.INFORMATION,
-    message           : data.message,
-    lu                : false,
+    type_notification: TYPE_NOTIFICATION.INFORMATION,
+    message: data.message,
   });
+
+  const delivery = await trySendMail(emailDestinataire, 'information', data);
+  return { notification, delivery, emailEnabled: isEmailEnabled() };
 }
 
 module.exports = { envoyerRappelRdv, envoyerUrgence, envoyerInformation };
