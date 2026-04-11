@@ -1,0 +1,52 @@
+# Global
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+
+# Environment files
+Backend/.env
+Rdv/.env
+Rdv/.env.*
+!Rdv/.env.example
+
+# Node
+Backend/node_modules/
+Rdv/node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Backend runtime
+Backend/logs/
+Backend/uploads/photos/*
+Backend/uploads/logos/*
+Backend/uploads/services/*
+!Backend/uploads/photos/.gitkeep
+!Backend/uploads/logos/.gitkeep
+!Backend/uploads/services/.gitkeep
+
+# React Native / Android
+Rdv/.bundle/
+Rdv/.gradle/
+Rdv/.gradle-user/
+Rdv/.idea/
+Rdv/.cxx/
+Rdv/android/.gradle/
+Rdv/android/build/
+Rdv/android/app/build/
+Rdv/android/app/.cxx/
+Rdv/android/.cxx/
+Rdv/android/local.properties
+Rdv/*.apk
+Rdv/*.aab
+
+# React Native / iOS
+Rdv/ios/build/
+Rdv/ios/Pods/
+Rdv/ios/DerivedData/
+Rdv/**/*.xcuserdata/
+Rdv/**/*.xcuserstate
+
+# Metro / coverage
+Rdv/.metro-health-check*
+Rdv/coverage/
