@@ -2,6 +2,7 @@
 
 require('dotenv').config();
 const { sequelize, connectDB } = require('../config/database');
+const { hashPassword } = require('../utils/hash.util');
 
 const ROLES = [
   { nom_role: 'administrateur', description: 'Acces total au systeme' },
@@ -63,6 +64,15 @@ const CLINIQUE = {
   nom: 'Clinique',
   adresse: 'A configurer',
   site_web: '',
+};
+
+const ADMIN_SEED = {
+  login: process.env.ADMIN_SEED_LOGIN || 'admin',
+  password: process.env.ADMIN_SEED_PASSWORD || 'Admin1234!',
+  nom: process.env.ADMIN_SEED_NOM || 'Administrateur',
+  prenom: process.env.ADMIN_SEED_PRENOM || 'Principal',
+  email: process.env.ADMIN_SEED_EMAIL || 'admin@clinique.local',
+  niveau_acces: Number(process.env.ADMIN_SEED_NIVEAU_ACCES || 2),
 };
 
 const SERVICES = [
@@ -135,8 +145,34 @@ async function seed() {
       });
     }
 
+    const roleAdmin = rolesCreated.administrateur;
+    const [adminUser] = await sequelize.models.Utilisateur.findOrCreate({
+      where: { login: ADMIN_SEED.login },
+      defaults: {
+        login: ADMIN_SEED.login,
+        password_hash: await hashPassword(ADMIN_SEED.password),
+        nom: ADMIN_SEED.nom,
+        prenom: ADMIN_SEED.prenom,
+        email: ADMIN_SEED.email,
+        type_user: 'administrateur',
+        statut: 'actif',
+        id_role: roleAdmin.id_role,
+      },
+      transaction: t,
+    });
+
+    await sequelize.models.Administrateur.findOrCreate({
+      where: { id_user: adminUser.id_user },
+      defaults: {
+        id_user: adminUser.id_user,
+        niveau_acces: ADMIN_SEED.niveau_acces,
+      },
+      transaction: t,
+    });
+
     await t.commit();
-    console.log('[SEED] Referentiels installes sans comptes de demonstration.');
+    console.log('[SEED] Referentiels installes.');
+    console.log(`[SEED] Administrateur disponible : login=${ADMIN_SEED.login}`);
   } catch (err) {
     await t.rollback();
     console.error('\n[SEED] Erreur :', err.message);
