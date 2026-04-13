@@ -132,7 +132,7 @@ export function ProfilScreen({ navigation }: { navigation?: any }) {
     <ScreenWrapper scroll style={{ backgroundColor: colors.background }}>
       <AppHeader
         title="Mon profil"
-        subtitle={`Connecte en tant que ${user.type_user}`}
+        subtitle={`Connecté en tant que ${user.type_user}`}
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
         rightActions={
           <PdfExportButton

@@ -11,6 +11,7 @@ import { Toast } from '../../components/ui/AppAlert';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppLoader } from '../../components/ui/AppLoader';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useAppSettings } from '../../store/AppSettingsContext';
 import { useAuth } from '../../store/AuthContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
@@ -42,6 +43,8 @@ function getWeekDays(): AgendaWeekItem[] {
 
 export function AgendaScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
+  const { currentRole, rolePreferences } = useAppSettings();
+  const exportAllowed = rolePreferences[currentRole]?.exportEnabled !== false;
   const { user } = useAuth();
   const [disponibilites, setDisponibilites] = useState<Disponibilite[]>([]);
   const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
@@ -102,9 +105,9 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
   const exportDayPlanning = useCallback(async () => {
     try {
       await exportToPdfAndShare({
-        title: 'Export planning medecin',
+        title: 'Export planning médecin',
         rows: dayRendezVous,
-        filters: { Jour: selectedDay, Creneaux_libres: dayDisponibilites.filter((d) => d.est_libre).length },
+        filters: { Jour: selectedDay, Créneaux_libres: dayDisponibilites.filter((d) => d.est_libre).length },
         columns: [
           { key: 'id', label: 'ID RDV', value: (r) => r.id_rdv },
           { key: 'date', label: 'Date', value: (r) => formatDate(r.date_heure_rdv) },
@@ -114,7 +117,7 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
           { key: 'motif', label: 'Motif', value: (r) => r.motif || '' },
         ],
       });
-      Toast.success('PDF pret', `${dayRendezVous.length} rendez-vous exporté(s) pour le ${selectedDay}.`);
+      Toast.success('PDF prêt', `${dayRendezVous.length} rendez-vous exporté(s) pour le ${selectedDay}.`);
     } catch (exportError) {
       Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
     }
@@ -126,7 +129,7 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
         title="Agenda"
         subtitle="Semaine en cours depuis le Backend"
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={<AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportDayPlanning} />}
+        rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportDayPlanning} /> : undefined}
       />
       {error && <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text>}
       {loading && disponibilites.length === 0 && rendezVous.length === 0 ? (

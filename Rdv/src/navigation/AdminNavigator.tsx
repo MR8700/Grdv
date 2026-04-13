@@ -29,8 +29,8 @@ function AdminTabs() {
     { key: 'Clinique', title: 'Clinique', icon: 'business', component: CliniqueScreen, hidden: true },
     { key: 'AuditLogs', title: 'Audit', icon: 'clipboard', component: AuditLogsScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, hidden: true },
-    { key: 'Synchronisation', title: 'Sync', icon: 'construct', component: SynchronisationScreen, hidden: true },
-    { key: 'Parametres', title: 'Reglages', icon: 'construct', component: ParametresScreen, hidden: true },
+    { key: 'Synchronisation', title: 'Synchro', icon: 'construct', component: SynchronisationScreen, hidden: true },
+    { key: 'Parametres', title: 'Réglages', icon: 'construct', component: ParametresScreen, hidden: true },
   ], []);
 
   return <RoleTabNavigator items={items} />;
@@ -52,10 +52,10 @@ function AdminDrawer() {
       { key: 'Services', label: 'Services', icon: 'medkit-outline', visible: canAccess('gerer_services') },
       { key: 'Clinique', label: 'Clinique', icon: 'business-outline', visible: canAccess('gerer_clinique') },
       { key: 'AuditLogs', label: 'Audit production', icon: 'document-text-outline', visible: canAccess('voir_audit_logs') },
-      { key: 'SystemJobs', label: 'Jobs systeme', icon: 'construct-outline', visible: true },
+      { key: 'SystemJobs', label: 'Jobs système', icon: 'construct-outline', visible: true },
       { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
       { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
-      { key: 'Parametres', label: 'Parametres', icon: 'settings-outline', visible: true },
+      { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
     ],
     [canAccess]
   );

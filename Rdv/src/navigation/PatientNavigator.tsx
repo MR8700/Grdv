@@ -28,8 +28,8 @@ function PatientTabs() {
     { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
     { key: 'MonDossier', title: 'Dossier', icon: 'folder', component: MonDossierScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, hidden: true },
-    { key: 'Synchronisation', title: 'Sync', icon: 'construct', component: SynchronisationScreen, hidden: true },
-    { key: 'Parametres', title: 'Reglages', icon: 'construct', component: ParametresScreen, hidden: true },
+    { key: 'Synchronisation', title: 'Synchro', icon: 'construct', component: SynchronisationScreen, hidden: true },
+    { key: 'Parametres', title: 'Réglages', icon: 'construct', component: ParametresScreen, hidden: true },
   ], [canAccess, unreadCount]);
 
   return <RoleTabNavigator items={items} />;
@@ -51,7 +51,7 @@ export function PatientNavigator() {
     { key: 'MonDossier', label: 'Mon dossier', icon: 'folder-outline', visible: true },
     { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
     { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
-    { key: 'Parametres', label: 'Parametres', icon: 'settings-outline', visible: true },
+    { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
   ], [canAccess, unreadCount]);
 
   return <ActorDrawerNavigator items={items} rootRouteName="PatientTabs" rootComponent={PatientTabs} />;

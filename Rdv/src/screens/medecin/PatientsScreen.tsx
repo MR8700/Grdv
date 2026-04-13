@@ -10,6 +10,7 @@ import { Toast } from '../../components/ui/AppAlert';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppLoader } from '../../components/ui/AppLoader';
+import { useAppSettings } from '../../store/AppSettingsContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { Patient } from '../../types/models.types';
@@ -17,6 +18,8 @@ import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfEx
  
 export function PatientsScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
+  const { currentRole, rolePreferences } = useAppSettings();
+  const exportAllowed = rolePreferences[currentRole]?.exportEnabled !== false;
   const [items, setItems] = useState<Patient[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -90,7 +93,7 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
         title="Patients"
         subtitle="Liste de vos patients"
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={<AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} />}
+        rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined}
       />
 
       <AppInput label="Recherche patient" value={search} onChangeText={setSearch} placeholder="Nom, email ou dossier" />

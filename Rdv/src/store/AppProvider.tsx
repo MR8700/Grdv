@@ -2,6 +2,7 @@ import React, { ReactNode, useEffect, useRef } from 'react';
 import { ThemeProvider } from './ThemeContext';
 import { AuthProvider } from './AuthContext';
 import { NotifProvider } from './NotifContext';
+import { AppSettingsProvider } from './AppSettingsContext';
 import { ToastContainer, Toast } from '../components/ui/AppAlert';
 import { flushPendingMutations } from '../utils/offlineSync';
 import { MediaOutbox } from '../utils/mediaOutbox';
@@ -61,10 +62,12 @@ export function AppProvider({ children, syncIntervalMs = 120000 }: AppProviderPr
   return (
     <ThemeProvider>
       <AuthProvider>
-        <NotifProvider>
-          {children}
-          <ToastContainer />
-        </NotifProvider>
+        <AppSettingsProvider>
+          <NotifProvider>
+            {children}
+            <ToastContainer />
+          </NotifProvider>
+        </AppSettingsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -60,16 +60,16 @@ export const RDV_STATUT_COLORS: Record<StatutRdv, { bg: string; text: string; bo
 
 export const STATUT_RDV_LABELS: Record<StatutRdv, string> = {
   en_attente: 'En attente',
-  confirme: 'Confirme',
-  refuse: 'Refuse',
-  annule: 'Annule',
-  archive: 'Archive',
+  confirme: 'Confirmé',
+  refuse: 'Refusé',
+  annule: 'Annulé',
+  archive: 'Archivé',
 };
 
 export const TYPE_USER_LABELS: Record<TypeUser, string> = {
   patient: 'Patient',
-  medecin: 'Medecin',
-  secretaire: 'Secretaire',
+  medecin: 'Médecin',
+  secretaire: 'Secrétaire',
   administrateur: 'Administrateur',
 };
 

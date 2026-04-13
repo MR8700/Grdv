@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '../store/ThemeContext';
 import { TabBarIcon } from '../components/layout/TabBarIcon';
 
@@ -18,8 +18,13 @@ const Tab = createBottomTabNavigator();
 
 export function RoleTabNavigator({ items }: { items: RoleTabItem[] }) {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
   const visiblePrimaryItems = items.filter((item) => item.visible !== false && !item.hidden).slice(0, 4);
   const hiddenItems = items.filter((item) => item.hidden);
+  const horizontalInset = 28;
+  const horizontalPadding = 16;
+  const tabCount = Math.max(visiblePrimaryItems.length, 1);
+  const tabWidth = Math.floor((width - horizontalInset - horizontalPadding) / tabCount);
 
   return (
     <Tab.Navigator
@@ -46,9 +51,9 @@ export function RoleTabNavigator({ items }: { items: RoleTabItem[] }) {
         },
         tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', marginTop: 2 },
-        tabBarItemStyle: { flex: 1, minWidth: 0, borderRadius: 18, paddingHorizontal: 2 },
-        tabBarIconStyle: { marginTop: 2 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700', marginTop: 1 },
+        tabBarItemStyle: { width: tabWidth, maxWidth: tabWidth, minWidth: tabWidth, borderRadius: 18, paddingHorizontal: 1 },
+        tabBarIconStyle: { marginTop: 0 },
         tabBarBackground: () => (
           <View
             style={{
@@ -71,7 +76,19 @@ export function RoleTabNavigator({ items }: { items: RoleTabItem[] }) {
             title: item.title,
             tabBarIcon: ({ focused }) => <TabBarIcon focused={focused} icon={item.icon} badge={item.badge} />,
             tabBarLabel: ({ focused, color }) => (
-              <Text numberOfLines={1} style={{ color, fontSize: 11, fontWeight: focused ? '800' : '700', textAlign: 'center', letterSpacing: 0.1 }}>
+              <Text
+                numberOfLines={2}
+                style={{
+                  color,
+                  fontSize: 9,
+                  lineHeight: 10,
+                  fontWeight: focused ? '800' : '700',
+                  textAlign: 'center',
+                  letterSpacing: 0,
+                  marginTop: 0,
+                  width: tabWidth - 6,
+                }}
+              >
                 {item.title}
               </Text>
             ),

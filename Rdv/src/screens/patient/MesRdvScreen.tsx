@@ -11,6 +11,7 @@ import { Toast } from '../../components/ui/AppAlert';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppLoader } from '../../components/ui/AppLoader';
+import { useAppSettings } from '../../store/AppSettingsContext';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
@@ -22,21 +23,21 @@ import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfEx
 const STATUS_OPTIONS = [
   { label: 'Tous les statuts', value: 'all' },
   { label: 'En attente', value: 'en_attente' },
-  { label: 'Confirme', value: 'confirme' },
-  { label: 'Refuse', value: 'refuse' },
-  { label: 'Annule', value: 'annule' },
-  { label: 'Archive', value: 'archive' },
+  { label: 'Confirmé', value: 'confirme' },
+  { label: 'Refusé', value: 'refuse' },
+  { label: 'Annulé', value: 'annule' },
+  { label: 'Archivé', value: 'archive' },
 ];
 
 function buildStatusMessage(rdv: RendezVous) {
-  const when = `${formatDate(rdv.date_heure_rdv)} a ${formatTime(rdv.date_heure_rdv)}`;
+  const when = `${formatDate(rdv.date_heure_rdv)} à ${formatTime(rdv.date_heure_rdv)}`;
   switch (rdv.statut_rdv) {
     case 'confirme':
-      return { title: 'Rendez-vous confirme', body: `Votre rendez-vous du ${when} est confirme.` };
+      return { title: 'Rendez-vous confirmé', body: `Votre rendez-vous du ${when} est confirmé.` };
     case 'refuse':
-      return { title: 'Rendez-vous refuse', body: `Votre demande du ${when} a ete refusee.` };
+      return { title: 'Rendez-vous refusé', body: `Votre demande du ${when} a été refusée.` };
     case 'annule':
-      return { title: 'Rendez-vous annule', body: `Votre rendez-vous du ${when} a ete annule.` };
+      return { title: 'Rendez-vous annulé', body: `Votre rendez-vous du ${when} a été annulé.` };
     default:
       return null;
   }
@@ -44,6 +45,8 @@ function buildStatusMessage(rdv: RendezVous) {
 
 export function MesRdvScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
+  const { currentRole, rolePreferences } = useAppSettings();
+  const exportAllowed = rolePreferences[currentRole]?.exportEnabled !== false;
   const [items, setItems] = useState<RendezVous[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -110,10 +113,10 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
           { key: 'heure', label: 'Heure', value: (r) => formatTime(r.date_heure_rdv) },
           { key: 'statut', label: 'Statut', value: (r) => r.statut_rdv },
           { key: 'motif', label: 'Motif', value: (r) => r.motif || '' },
-          { key: 'medecin', label: 'Medecin', value: (r) => `${r.medecin?.utilisateur?.prenom || ''} ${r.medecin?.utilisateur?.nom || ''}`.trim() },
+          { key: 'medecin', label: 'Médecin', value: (r) => `${r.medecin?.utilisateur?.prenom || ''} ${r.medecin?.utilisateur?.nom || ''}`.trim() },
         ],
       });
-      Toast.success('PDF pret', `${filteredItems.length} rendez-vous exporte(s).`);
+      Toast.success('PDF prêt', `${filteredItems.length} rendez-vous exporté(s).`);
     } catch (exportError) {
       Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
     }
@@ -151,7 +154,7 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
         title="Mes rendez-vous"
         subtitle="Suivi et confirmation"
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={<AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} />}
+        rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined}
       />
 
       <AppDropdown label="Filtrer par statut" value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />

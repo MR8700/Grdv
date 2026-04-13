@@ -76,7 +76,7 @@ export function DrawerContent({ state, navigation, items = [], rootRouteName }: 
               {TYPE_USER_LABELS[user.type_user as keyof typeof TYPE_USER_LABELS] ?? user.type_user}
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 12, marginTop: 8 }}>
-              Navigation recentee autour des actions metier principales.
+              Navigation recentrée autour des actions métier principales.
             </Text>
           </>
         )}
@@ -175,7 +175,7 @@ export function DrawerContent({ state, navigation, items = [], rootRouteName }: 
         >
           <AppIcon name="log-out-outline" size={18} color={colors.danger} />
           <Text style={{ color: colors.danger, fontSize: 14, fontWeight: '700' }}>
-            Deconnexion
+            Déconnexion
           </Text>
         </TouchableOpacity>
       </View>

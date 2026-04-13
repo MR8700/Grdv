@@ -5,6 +5,7 @@ const KEYS = {
   REFRESH_TOKEN: '@clinique:refreshToken',
   USER: '@clinique:user',
   THEME: '@clinique:theme',
+  APP_SETTINGS: '@clinique:appSettings',
 };
 
 export const Storage = {
@@ -26,6 +27,11 @@ export const Storage = {
   },
   setTheme: (theme: 'light' | 'dark') => AsyncStorage.setItem(KEYS.THEME, theme),
   getTheme: () => AsyncStorage.getItem(KEYS.THEME),
+  setAppSettings: (settings: object) => AsyncStorage.setItem(KEYS.APP_SETTINGS, JSON.stringify(settings)),
+  getAppSettings: async <T = unknown>() => {
+    const raw = await AsyncStorage.getItem(KEYS.APP_SETTINGS);
+    return raw ? (JSON.parse(raw) as T) : null;
+  },
   clear: () => AsyncStorage.multiRemove(Object.values(KEYS)),
 };
 

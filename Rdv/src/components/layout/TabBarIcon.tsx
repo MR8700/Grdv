@@ -47,7 +47,7 @@ export function TabBarIcon({ icon, focused, badge }: TabBarIconProps) {
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center' }}>
       <Animated.View style={animStyle}>
-        <AppIcon name={iconName} size={24} color={focused ? colors.tabActive : colors.tabInactive} />
+        <AppIcon name={iconName} size={22} color={focused ? colors.tabActive : colors.tabInactive} />
       </Animated.View>
 
       {badge != null && badge > 0 && (
