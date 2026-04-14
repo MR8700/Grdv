@@ -15,6 +15,7 @@ const { apiLimiter } = require('./middlewares/rateLimiter.middleware');
 const { notFound, errorHandler } = require('./middlewares/errorHandler.middleware');
 
 const app = express();
+let server;
 
 app.use(helmet());
 app.use(
@@ -80,11 +81,52 @@ async function start() {
   await connectDB();
   await verifyMailer();
   startScheduler();
-  app.listen(PORT, () => {
+  server = app.listen(PORT, () => {
     logger.info(`Serveur demarre sur http://localhost:${PORT}${API_PREFIX}`);
     logger.info(`Environnement : ${NODE_ENV}`);
   });
 }
+
+async function shutdown(signal) {
+  logger.warn(`[APP] Signal ${signal} recu, arret en cours...`);
+
+  if (!server) {
+    process.exit(0);
+    return;
+  }
+
+  server.close((err) => {
+    if (err) {
+      logger.error('[APP] Erreur pendant la fermeture du serveur :', err);
+      process.exit(1);
+      return;
+    }
+
+    process.exit(0);
+  });
+}
+
+process.on('SIGINT', () => {
+  shutdown('SIGINT').catch((err) => {
+    logger.error('[APP] Echec de l arret SIGINT :', err);
+    process.exit(1);
+  });
+});
+
+process.on('SIGTERM', () => {
+  shutdown('SIGTERM').catch((err) => {
+    logger.error('[APP] Echec de l arret SIGTERM :', err);
+    process.exit(1);
+  });
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('[APP] uncaughtException :', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('[APP] unhandledRejection :', reason);
+});
 
 if (NODE_ENV !== 'test') {
   start();
