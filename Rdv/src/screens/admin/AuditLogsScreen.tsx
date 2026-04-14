@@ -37,15 +37,17 @@ export function AuditLogsScreen() {
 
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [tableFilter, setTableFilter] = useState('');
+  const filterRef = React.useRef('');
   const [loading, setLoading] = useState(false);
 
-  const loadLogs = useCallback(async () => {
+  const loadLogs = useCallback(async (explicitFilter?: string) => {
     if (!hasPermission('voir_audit_logs')) return;
     setLoading(true);
     try {
+      const activeFilter = typeof explicitFilter === 'string' ? explicitFilter : filterRef.current;
       const response = await auditApi.getAll({
         limit: 200,
-        ...(tableFilter.trim() ? { table_nom: tableFilter.trim() } : {}),
+        ...(activeFilter.trim() ? { table_nom: activeFilter.trim() } : {}),
       });
       setLogs((response.data.data || []) as AuditLog[]);
     } catch {
@@ -53,7 +55,7 @@ export function AuditLogsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [tableFilter, hasPermission]);
+  }, [hasPermission]);
 
   React.useEffect(() => {
     loadLogs();
@@ -113,16 +115,21 @@ export function AuditLogsScreen() {
         <AppInput
           label="Table (optionnel)"
           value={tableFilter}
-          onChangeText={setTableFilter}
+          onChangeText={(value) => {
+            setTableFilter(value);
+            filterRef.current = value;
+          }}
           placeholder="Ex: utilisateurs, services, rendez-vous"
         />
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <AppButton label="Actualiser" onPress={loadLogs} style={{ flex: 1 }} />
+          <AppButton label="Actualiser" onPress={() => loadLogs(tableFilter)} style={{ flex: 1 }} />
           <AppButton
             label="Reset"
             variant="outline"
             onPress={() => {
               setTableFilter('');
+              filterRef.current = '';
+              loadLogs('');
             }}
             style={{ flex: 1 }}
           />
@@ -133,7 +140,7 @@ export function AuditLogsScreen() {
         data={logs}
         keyExtractor={(item) => String(item.id_log)}
         refreshing={loading}
-        onRefresh={loadLogs}
+        onRefresh={() => loadLogs(tableFilter)}
         contentContainerStyle={{ paddingBottom: 16, gap: 10 }}
         renderItem={({ item }) => {
           const color = actionColor(item.action_type);

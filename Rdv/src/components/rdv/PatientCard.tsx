@@ -11,7 +11,7 @@ interface PatientCardProps {
   onPress?: () => void;
 }
 
-export function PatientCard({ patient, subtitle, onPress }: PatientCardProps) {
+function PatientCardComponent({ patient, subtitle, onPress }: PatientCardProps) {
   const { colors } = useTheme();
   const utilisateur = patient.utilisateur;
 
@@ -43,3 +43,5 @@ export function PatientCard({ patient, subtitle, onPress }: PatientCardProps) {
     </AppCard>
   );
 }
+
+export const PatientCard = React.memo(PatientCardComponent);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, RefreshControl, ViewStyle, Animated } from 'react-native';
+import { RefreshControl, ScrollView, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../store/ThemeContext';
 import { AppStatusBar } from '../ui/AppStatusBar';
@@ -14,7 +14,7 @@ interface ScreenWrapperProps {
   safeEdges?: Array<'top' | 'bottom' | 'left' | 'right'>;
 }
 
-export function ScreenWrapper({
+function ScreenWrapperComponent({
   children,
   scroll = true,
   refreshing = false,
@@ -24,69 +24,64 @@ export function ScreenWrapper({
   safeEdges = ['top', 'bottom'],
 }: ScreenWrapperProps) {
   const { colors } = useTheme();
-  const scrollY = React.useRef(new Animated.Value(0)).current;
 
-  const animatedContentStyle = {
-    paddingTop: scrollY.interpolate({
-      inputRange: [0, 60],
-      outputRange: [18, 24],
-      extrapolate: 'clamp',
+  const baseBackground = React.useMemo<ViewStyle>(
+    () => ({ flex: 1, backgroundColor: colors.background }),
+    [colors.background]
+  );
+
+  const backgroundDecor = React.useMemo<ViewStyle>(
+    () => ({
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: colors.primary,
+      opacity: 0.025,
+      top: -160,
+      height: 320,
+      borderBottomLeftRadius: 160,
+      borderBottomRightRadius: 160,
     }),
-    paddingBottom: 126,
-  };
+    [colors.primary]
+  );
+
+  const scrollContentStyle = React.useMemo(
+    () => [{ flexGrow: 1, gap: 14, paddingHorizontal: 16, paddingTop: 18, paddingBottom: 126 }, contentStyle],
+    [contentStyle]
+  );
+
+  const staticContentStyle = React.useMemo(
+    () => [{ flex: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126, gap: 14 }, contentStyle],
+    [contentStyle]
+  );
+
+  const refreshControl = React.useMemo(
+    () =>
+      onRefresh ? (
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
+          progressBackgroundColor={colors.surface}
+        />
+      ) : undefined,
+    [colors.primary, colors.surface, onRefresh, refreshing]
+  );
 
   return (
-    <SafeAreaView
-      style={[
-        { flex: 1, backgroundColor: colors.background },
-        style,
-      ]}
-      edges={safeEdges}
-    >
+    <SafeAreaView style={[baseBackground, style]} edges={safeEdges}>
       <AppStatusBar />
 
       {scroll ? (
-        <Animated.ScrollView
+        <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            { flexGrow: 1, gap: 14, paddingHorizontal: 16 },
-            animatedContentStyle,
-            contentStyle,
-          ]}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: false }
-          )}
-          scrollEventThrottle={16}
-          refreshControl={
-            onRefresh ? (
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={colors.primary}
-                colors={[colors.primary]}
-                progressBackgroundColor={colors.surface}
-              />
-            ) : undefined
-          }
+          contentContainerStyle={scrollContentStyle}
+          refreshControl={refreshControl}
         >
-          <View
-            style={{
-              ...StyleSheet.absoluteFillObject,
-              backgroundColor: colors.primary,
-              opacity: 0.025,
-              top: -160,
-              height: 320,
-              borderBottomLeftRadius: 160,
-              borderBottomRightRadius: 160,
-            }}
-          />
+          <View style={backgroundDecor} />
           {children}
-        </Animated.ScrollView>
+        </ScrollView>
       ) : (
-        <View style={[{ flex: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126, gap: 14 }, contentStyle]}>
-          {children}
-        </View>
+        <View style={staticContentStyle}>{children}</View>
       )}
     </SafeAreaView>
   );
@@ -101,3 +96,5 @@ const StyleSheet = {
     left: 0,
   },
 };
+
+export const ScreenWrapper = React.memo(ScreenWrapperComponent);

@@ -27,7 +27,29 @@ export function usePaginatedApi<T>({
       try {
         const params = { ...paramsRef.current, page: pageToLoad, limit: pageSize };
         const data = await fetcher(params);
-        setItems((prev) => (reset ? data : [...prev, ...data]));
+        setItems((prev) => {
+          if (reset) return data;
+
+          const merged = [...prev, ...data];
+          const seen = new Set<string>();
+
+          return merged.filter((item, index) => {
+            const candidate = item as Record<string, unknown>;
+            const id =
+              candidate.id ??
+              candidate.id_user ??
+              candidate.id_service ??
+              candidate.id_rdv ??
+              candidate.id_log ??
+              candidate.id_job ??
+              `${pageToLoad}-${index}`;
+
+            const key = String(id);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        });
         setHasMore(data.length === pageSize);
         setPage(pageToLoad);
       } catch (err: any) {

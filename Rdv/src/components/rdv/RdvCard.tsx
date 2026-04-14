@@ -24,7 +24,7 @@ const statutMap: Record<string, 'EN_ATTENTE' | 'CONFIRME' | 'REFUSE' | 'ANNULE' 
   termine: 'TERMINE',
 };
 
-export function RdvCard({ rdv, onPress, index = 0 }: RdvCardProps) {
+function RdvCardComponent({ rdv, onPress, index = 0 }: RdvCardProps) {
   const { colors } = useTheme();
   const patient = rdv.patient?.utilisateur;
   const medecin = rdv.medecin?.utilisateur;
@@ -32,9 +32,10 @@ export function RdvCard({ rdv, onPress, index = 0 }: RdvCardProps) {
   const secondaryLabel = patient && medecin
     ? `Dr ${formatNom(medecin.nom, medecin.prenom)}`
     : rdv.disponibilite?.service?.nom_service || 'Rendez-vous clinique';
+  const entering = index < 4 ? FadeInDown.delay(index * 40).springify() : undefined;
 
   return (
-    <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+    <Animated.View entering={entering}>
       <AppCard onPress={onPress} style={{ marginBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           {primaryPerson && (
@@ -92,3 +93,5 @@ export function RdvCard({ rdv, onPress, index = 0 }: RdvCardProps) {
     </Animated.View>
   );
 }
+
+export const RdvCard = React.memo(RdvCardComponent);

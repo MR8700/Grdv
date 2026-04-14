@@ -82,6 +82,11 @@ client.interceptors.response.use(
     const method = String(response.config.method || 'get').toLowerCase();
     if (method === 'get') {
       await OfflineStorage.cacheGet(response.config, response.data);
+    } else if (isWriteMethod(method)) {
+      const url = String(response.config.url || '');
+      if (url) {
+        await OfflineStorage.invalidateGetCache(url);
+      }
     }
     return response;
   },

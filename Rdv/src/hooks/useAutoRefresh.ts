@@ -11,23 +11,20 @@ export function useAutoRefresh(
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const inFlightRef = useRef(false);
   const isFocused = useIsFocused();
-
-  // 🔥 garder une référence stable du callback
   const callbackRef = useRef(callback);
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
 
-  // 🔥 fonction exécutée (stable)
   const run = useCallback(async () => {
     if (inFlightRef.current) return;
 
     inFlightRef.current = true;
     try {
       await callbackRef.current();
-    } catch (e) {
-      console.warn('AutoRefresh error:', e);
+    } catch (error) {
+      console.warn('AutoRefresh error:', error);
     } finally {
       inFlightRef.current = false;
     }
@@ -37,26 +34,28 @@ export function useAutoRefresh(
     if (!enabled || !isFocused) return;
 
     const start = () => {
-      if (timerRef.current) return; // éviter doublon
+      if (timerRef.current) return;
       timerRef.current = setInterval(run, intervalMs);
     };
 
     const stop = () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      if (!timerRef.current) return;
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     };
 
     start();
 
     const sub = AppState.addEventListener('change', (next) => {
       if (appStateRef.current !== 'active' && next === 'active') {
+        run();
         start();
       }
+
       if (next !== 'active') {
         stop();
       }
+
       appStateRef.current = next;
     });
 
@@ -64,5 +63,5 @@ export function useAutoRefresh(
       stop();
       sub.remove();
     };
-  }, [intervalMs, enabled, isFocused, run]);
+  }, [enabled, intervalMs, isFocused, run]);
 }

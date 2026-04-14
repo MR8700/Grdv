@@ -18,25 +18,29 @@ const COLORS: Record<AlertType, { bg: string; border: string; text: string; icon
   info: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF', icon: 'i' },
 };
 
-function AlertToast({ item, onDismiss }: { item: AlertItem; onDismiss: () => void }) {
+function AlertToastComponent({ item, onDismiss }: { item: AlertItem; onDismiss: () => void }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-30)).current;
   const scale = useRef(new Animated.Value(0.95)).current;
   const progress = useRef(new Animated.Value(0)).current;
+  const dismissedRef = useRef(false);
 
   const duration = item.duration ?? 10000;
 
   const dismiss = useCallback(() => {
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
+
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(translateY, { toValue: -20, duration: 200, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -20, duration: 180, useNativeDriver: true }),
     ]).start(onDismiss);
   }, [onDismiss, opacity, translateY]);
 
   useEffect(() => {
     Animated.parallel([
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
       Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
     ]).start();
 
@@ -74,7 +78,7 @@ function AlertToast({ item, onDismiss }: { item: AlertItem; onDismiss: () => voi
       </View>
 
       <TouchableOpacity onPress={dismiss}>
-        <Text style={[styles.close, { color: colorSet.text }]}>×</Text>
+        <Text style={[styles.close, { color: colorSet.text }]}>x</Text>
       </TouchableOpacity>
 
       <Animated.View
@@ -93,7 +97,10 @@ function AlertToast({ item, onDismiss }: { item: AlertItem; onDismiss: () => voi
   );
 }
 
+const AlertToast = React.memo(AlertToastComponent);
+
 let addToast: ((type: AlertType, title: string, message?: string, duration?: number) => void) | null = null;
+let toastCounter = 0;
 
 export const Toast = {
   success: (title: string, message?: string, duration?: number) => addToast?.('success', title, message, duration),
@@ -111,8 +118,9 @@ export function ToastContainer() {
 
   useEffect(() => {
     addToast = (type, title, message, duration) => {
-      const id = Date.now().toString();
-      setToasts((prev) => [{ id, type, title, message, duration }, ...prev]);
+      toastCounter += 1;
+      const id = `${Date.now()}-${toastCounter}`;
+      setToasts((prev) => [{ id, type, title, message, duration }, ...prev].slice(0, 4));
     };
 
     return () => {
@@ -120,12 +128,12 @@ export function ToastContainer() {
     };
   }, []);
 
-  const dismiss = (id: string) => {
+  const dismiss = useCallback((id: string) => {
     setToasts((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       {toasts.map((toast) => (
         <AlertToast key={toast.id} item={toast} onDismiss={() => dismiss(toast.id)} />
       ))}

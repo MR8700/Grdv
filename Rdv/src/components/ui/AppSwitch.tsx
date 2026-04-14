@@ -1,12 +1,6 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableWithoutFeedback } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  interpolateColor,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolateColor } from 'react-native-reanimated';
 import { useTheme } from '../../store/ThemeContext';
 
 interface AppSwitchProps {
@@ -15,25 +9,21 @@ interface AppSwitchProps {
   label?: string;
   disabled?: boolean;
 }
- 
-export function AppSwitch({ value, onToggle, label, disabled }: AppSwitchProps) {
+
+function AppSwitchComponent({ value, onToggle, label, disabled }: AppSwitchProps) {
   const { colors } = useTheme();
   const translateX = useSharedValue(value ? 22 : 2);
   const trackAnim = useSharedValue(value ? 1 : 0);
 
-  // Sync values if parent changes value
   useEffect(() => {
     translateX.value = withSpring(value ? 22 : 2);
-    trackAnim.value = withTiming(value ? 1 : 0, { duration: 300 });
+    trackAnim.value = withTiming(value ? 1 : 0, { duration: 220 });
   }, [trackAnim, translateX, value]);
 
-  const toggle = () => {
+  const toggle = React.useCallback(() => {
     if (disabled) return;
-    const next = !value;
-    translateX.value = withSpring(next ? 22 : 2, { damping: 12, stiffness: 120 });
-    trackAnim.value = withTiming(next ? 1 : 0, { duration: 300 });
-    onToggle(next);
-  };
+    onToggle(!value);
+  }, [disabled, onToggle, value]);
 
   const knobStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: translateX.value }],
@@ -42,17 +32,12 @@ export function AppSwitch({ value, onToggle, label, disabled }: AppSwitchProps) 
   }));
 
   const trackStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      trackAnim.value,
-      [0, 1],
-      [colors.border, colors.primary]
-    ),
+    backgroundColor: interpolateColor(trackAnim.value, [0, 1], [colors.border, colors.primary]),
   }));
 
   return (
     <TouchableWithoutFeedback onPress={toggle} disabled={disabled}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: disabled ? 0.5 : 1 }}>
-        {/* Track */}
         <Animated.View
           style={[
             {
@@ -66,7 +51,6 @@ export function AppSwitch({ value, onToggle, label, disabled }: AppSwitchProps) 
             trackStyle,
           ]}
         >
-          {/* Knob */}
           <Animated.View
             style={[
               {
@@ -83,12 +67,10 @@ export function AppSwitch({ value, onToggle, label, disabled }: AppSwitchProps) 
           />
         </Animated.View>
 
-        {label && (
-          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500' }}>
-            {label}
-          </Text>
-        )}
+        {label ? <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500' }}>{label}</Text> : null}
       </View>
     </TouchableWithoutFeedback>
   );
 }
+
+export const AppSwitch = React.memo(AppSwitchComponent);

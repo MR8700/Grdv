@@ -15,7 +15,7 @@ import { useAuth } from './AuthContext';
 import { Toast } from '../components/ui/AppAlert';
 import { TYPE_USER_LABELS } from '../utils/constants';
 import { AppButton } from '../components/ui/AppButton';
-import { authenticateBiometric } from '../utils/biometrics';
+import { authenticateBiometric, getBiometricStatus } from '../utils/biometrics';
 
 type RoleKey = 'patient' | 'medecin' | 'secretaire' | 'administrateur';
 
@@ -37,7 +37,9 @@ interface AppSettingsState {
 interface AppSettingsContextValue extends AppSettingsState {
   currentRole: RoleKey;
   lockVisible: boolean;
-  setBiometricLockEnabled: (value: boolean) => void;
+  biometricAvailable: boolean;
+  biometricLabel: string;
+  setBiometricLockEnabled: (value: boolean) => Promise<void>;
   setInactivityMinutes: (minutes: number) => void;
   setWarnBeforeLock: (value: boolean) => void;
   updateRolePreferences: (role: RoleKey, patch: Partial<RoleSettings>) => void;
@@ -77,25 +79,34 @@ function normalizeRole(input?: string | null): RoleKey {
   return 'patient';
 }
 
+function formatBiometricLabel(type: string | null) {
+  const value = String(type || '').toLowerCase();
+  if (value.includes('face')) return 'Face ID';
+  if (value.includes('touch')) return 'Touch ID';
+  if (value.includes('finger')) return 'Empreinte';
+  return 'Biometrie';
+}
+
 export function AppSettingsProvider({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, isLoggedIn } = useAuth();
 
   const [settings, setSettings] = useState<AppSettingsState>(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
   const [lockVisible, setLockVisible] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState('Biometrie');
 
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const lastActivityRef = useRef(Date.now());
   const lastWarningRef = useRef<number | null>(null);
+  const relockOnActiveRef = useRef(false);
+  const unlockInFlightRef = useRef(false);
+  const autoPromptedRef = useRef(false);
 
-  const currentRole = useMemo<RoleKey>(
-    () => normalizeRole(user?.type_user || user?.role?.nom_role),
-    [user]
-  );
+  const currentRole = useMemo<RoleKey>(() => normalizeRole(user?.type_user || user?.role?.nom_role), [user]);
 
-  // 🔁 LOAD
   useEffect(() => {
     (async () => {
       const saved = await Storage.getAppSettings<Partial<AppSettingsState>>();
@@ -111,38 +122,64 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  // 💾 SAVE
   useEffect(() => {
     if (hydrated) Storage.setAppSettings(settings);
   }, [settings, hydrated]);
 
-  // 📌 ACTIVITY
+  useEffect(() => {
+    let mounted = true;
+
+    const refreshBiometricStatus = async () => {
+      const status = await getBiometricStatus();
+      if (!mounted) return;
+      setBiometricAvailable(status.available);
+      setBiometricLabel(formatBiometricLabel(status.biometryType));
+
+      if (!status.available && settings.biometricLockEnabled) {
+        setSettings((prev) => ({ ...prev, biometricLockEnabled: false }));
+      }
+    };
+
+    refreshBiometricStatus();
+    return () => {
+      mounted = false;
+    };
+  }, [settings.biometricLockEnabled]);
+
   const registerActivity = useCallback(() => {
     lastActivityRef.current = Date.now();
     lastWarningRef.current = null;
   }, []);
 
-  // 📱 APP STATE
+  const showLock = useCallback(() => {
+    autoPromptedRef.current = false;
+    setLockVisible(true);
+  }, []);
+
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState) => {
       const prev = appStateRef.current;
       appStateRef.current = nextState;
 
       if (nextState === 'active' && prev !== 'active') {
+        if (relockOnActiveRef.current && settings.biometricLockEnabled && isLoggedIn) {
+          showLock();
+          return;
+        }
         registerActivity();
       }
 
-      if (nextState === 'background' && settings.biometricLockEnabled) {
-        setLockVisible(true);
+      if ((nextState === 'inactive' || nextState === 'background') && settings.biometricLockEnabled && isLoggedIn) {
+        relockOnActiveRef.current = true;
+        showLock();
       }
     });
 
     return () => sub.remove();
-  }, [settings.biometricLockEnabled, registerActivity]);
+  }, [isLoggedIn, registerActivity, settings.biometricLockEnabled, showLock]);
 
-  // ⏱ INACTIVITY CHECK
   useEffect(() => {
-    if (!hydrated || !settings.biometricLockEnabled) return;
+    if (!hydrated || !settings.biometricLockEnabled || !isLoggedIn) return;
 
     const interval = setInterval(() => {
       if (appStateRef.current !== 'active' || lockVisible) return;
@@ -150,59 +187,104 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       const now = Date.now();
       const idle = now - lastActivityRef.current;
       const lockTime = settings.inactivityMinutes * 60000;
-      const warnTime = lockTime - 60000;
+      const warnTime = Math.max(lockTime - 60000, 0);
 
-      if (
-        settings.warnBeforeLock &&
-        idle >= warnTime &&
-        idle < lockTime &&
-        lastWarningRef.current !== lockTime
-      ) {
+      if (settings.warnBeforeLock && idle >= warnTime && idle < lockTime && lastWarningRef.current !== lockTime) {
         lastWarningRef.current = lockTime;
-        Toast.warning('Verrouillage imminent', 'Moins d’une minute restante');
+        Toast.warning('Verrouillage imminent', 'Moins d une minute restante avant le verrouillage.');
       }
 
       if (idle >= lockTime) {
-        setLockVisible(true);
+        relockOnActiveRef.current = true;
+        showLock();
       }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [settings, lockVisible, hydrated]);
+  }, [hydrated, isLoggedIn, lockVisible, settings.biometricLockEnabled, settings.inactivityMinutes, settings.warnBeforeLock, showLock]);
 
-  // 🔓 UNLOCK
   const unlockApp = useCallback(async () => {
     if (!settings.biometricLockEnabled) {
+      relockOnActiveRef.current = false;
       setLockVisible(false);
+      registerActivity();
       return;
     }
 
+    if (unlockInFlightRef.current) return;
+
+    unlockInFlightRef.current = true;
     setAuthLoading(true);
 
-    const success = await authenticateBiometric();
+    const result = await authenticateBiometric(`Deverrouiller la session ${currentRole}`);
 
-    if (success) {
+    if (result.success) {
+      relockOnActiveRef.current = false;
       registerActivity();
       setLockVisible(false);
-      Toast.success('Déverrouillé', 'Accès autorisé');
+      Toast.success('Deverrouille', 'Acces autorise.');
     } else {
-      Toast.error('Échec', 'Authentification refusée');
+      Toast.error('Echec', result.error || 'Authentification refusee.');
     }
 
     setAuthLoading(false);
-  }, [settings.biometricLockEnabled, registerActivity]);
+    unlockInFlightRef.current = false;
+  }, [currentRole, registerActivity, settings.biometricLockEnabled]);
+
+  useEffect(() => {
+    if (!lockVisible || authLoading || autoPromptedRef.current) return;
+    if (!settings.biometricLockEnabled || !biometricAvailable) return;
+    if (appStateRef.current !== 'active') return;
+
+    autoPromptedRef.current = true;
+    unlockApp();
+  }, [authLoading, biometricAvailable, lockVisible, settings.biometricLockEnabled, unlockApp]);
+
+  const setBiometricLockEnabled = useCallback(
+    async (value: boolean) => {
+      if (!value) {
+        setSettings((prev) => ({ ...prev, biometricLockEnabled: false }));
+        setLockVisible(false);
+        relockOnActiveRef.current = false;
+        Toast.info('Biometrie', 'Verrouillage biometrique desactive.', 1500);
+        return;
+      }
+
+      const status = await getBiometricStatus();
+      setBiometricAvailable(status.available);
+      setBiometricLabel(formatBiometricLabel(status.biometryType));
+
+      if (!status.available) {
+        Toast.error('Biometrie indisponible', status.reason || 'Aucun capteur compatible n est disponible.');
+        return;
+      }
+
+      setAuthLoading(true);
+      const result = await authenticateBiometric('Confirmer l activation du verrouillage biometrique');
+      setAuthLoading(false);
+
+      if (!result.success) {
+        Toast.error('Activation annulee', result.error || 'Validation biometrique impossible.');
+        return;
+      }
+
+      setSettings((prev) => ({ ...prev, biometricLockEnabled: true }));
+      registerActivity();
+      Toast.success('Biometrie activee', `${formatBiometricLabel(status.biometryType)} sera demandee au verrouillage.`);
+    },
+    [registerActivity]
+  );
 
   const value = useMemo(
     () => ({
       ...settings,
       currentRole,
       lockVisible,
-      setBiometricLockEnabled: (v: boolean) =>
-        setSettings((p) => ({ ...p, biometricLockEnabled: v })),
-      setInactivityMinutes: (m: number) =>
-        setSettings((p) => ({ ...p, inactivityMinutes: m })),
-      setWarnBeforeLock: (v: boolean) =>
-        setSettings((p) => ({ ...p, warnBeforeLock: v })),
+      biometricAvailable,
+      biometricLabel,
+      setBiometricLockEnabled,
+      setInactivityMinutes: (m: number) => setSettings((p) => ({ ...p, inactivityMinutes: m })),
+      setWarnBeforeLock: (v: boolean) => setSettings((p) => ({ ...p, warnBeforeLock: v })),
       updateRolePreferences: (role: RoleKey, patch: Partial<RoleSettings>) =>
         setSettings((p) => ({
           ...p,
@@ -214,7 +296,7 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
       registerActivity,
       unlockApp,
     }),
-    [settings, currentRole, lockVisible, registerActivity, unlockApp]
+    [settings, currentRole, lockVisible, biometricAvailable, biometricLabel, setBiometricLockEnabled, registerActivity, unlockApp]
   );
 
   const roleLabel = TYPE_USER_LABELS[currentRole] ?? currentRole;
@@ -225,7 +307,6 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
         {children}
       </View>
 
-      {/* 🔒 LOCK MODAL */}
       <Modal visible={lockVisible} transparent animationType="fade">
         <View
           style={{
@@ -247,22 +328,27 @@ export function AppSettingsProvider({ children }: { children: ReactNode }) {
             }}
           >
             <Text style={{ fontSize: 18, fontWeight: '800', textAlign: 'center', color: colors.text }}>
-              Application verrouillée
+              Application verrouillee
             </Text>
 
             <Text style={{ textAlign: 'center', color: colors.textMuted }}>
-              Session {roleLabel.toLowerCase()} sécurisée
+              Session {roleLabel.toLowerCase()} securisee
+            </Text>
+
+            <Text style={{ textAlign: 'center', color: colors.textMuted }}>
+              Verification requise via {biometricLabel}.
             </Text>
 
             <AppButton
-              label={authLoading ? 'Vérification...' : 'Déverrouiller'}
+              label={authLoading ? 'Verification...' : 'Deverrouiller'}
               fullWidth
               onPress={unlockApp}
+              loading={authLoading}
             />
 
-            <Pressable onPress={unlockApp}>
-              <Text style={{ textAlign: 'center', color: colors.primary, fontWeight: '700' }}>
-                Réessayer
+            <Pressable onPress={unlockApp} disabled={authLoading}>
+              <Text style={{ textAlign: 'center', color: colors.primary, fontWeight: '700', opacity: authLoading ? 0.6 : 1 }}>
+                Reessayer
               </Text>
             </Pressable>
           </View>

@@ -18,12 +18,16 @@ interface CachedGetEntry {
   key: string;
   payload: unknown;
   updatedAt: string;
+  expiresAt: string;
 }
 
 const KEYS = {
   QUEUE: '@clinique:offlineQueue',
   CACHE: '@clinique:apiGetCache',
 };
+
+const GET_CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 80;
 
 const safeParse = <T>(raw: string | null, fallback: T): T => {
   if (!raw) return fallback;
@@ -70,15 +74,58 @@ export const OfflineStorage = {
     const key = buildGetCacheKey(config);
     const raw = await AsyncStorage.getItem(KEYS.CACHE);
     const cache = safeParse<Record<string, CachedGetEntry>>(raw, {});
-    cache[key] = { key, payload, updatedAt: new Date().toISOString() };
-    await AsyncStorage.setItem(KEYS.CACHE, JSON.stringify(cache));
+    const now = Date.now();
+    cache[key] = {
+      key,
+      payload,
+      updatedAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + GET_CACHE_TTL_MS).toISOString(),
+    };
+
+    const entries = Object.values(cache)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, MAX_CACHE_ENTRIES);
+
+    const trimmed = entries.reduce<Record<string, CachedGetEntry>>((acc, entry) => {
+      acc[entry.key] = entry;
+      return acc;
+    }, {});
+    await AsyncStorage.setItem(KEYS.CACHE, JSON.stringify(trimmed));
   },
 
   async getCachedGet(config: InternalAxiosRequestConfig): Promise<unknown | null> {
     const key = buildGetCacheKey(config);
     const raw = await AsyncStorage.getItem(KEYS.CACHE);
     const cache = safeParse<Record<string, CachedGetEntry>>(raw, {});
-    return cache[key]?.payload ?? null;
+    const entry = cache[key];
+    if (!entry) return null;
+
+    const expiresAt = Date.parse(entry.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) {
+      delete cache[key];
+      await AsyncStorage.setItem(KEYS.CACHE, JSON.stringify(cache));
+      return null;
+    }
+
+    return entry.payload ?? null;
+  },
+
+  async invalidateGetCache(matcher?: string | RegExp) {
+    const raw = await AsyncStorage.getItem(KEYS.CACHE);
+    const cache = safeParse<Record<string, CachedGetEntry>>(raw, {});
+
+    if (!matcher) {
+      await AsyncStorage.removeItem(KEYS.CACHE);
+      return;
+    }
+
+    const next = Object.entries(cache).reduce<Record<string, CachedGetEntry>>((acc, [key, entry]) => {
+      const matches = typeof matcher === 'string' ? key.includes(matcher) : matcher.test(key);
+      if (!matches) acc[key] = entry;
+      return acc;
+    }, {});
+
+    await AsyncStorage.setItem(KEYS.CACHE, JSON.stringify(next));
   },
 };
 

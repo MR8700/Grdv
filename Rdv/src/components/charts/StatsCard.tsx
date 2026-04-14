@@ -5,29 +5,26 @@ import { AppCard } from '../ui/AppCard';
 import { useTheme } from '../../store/ThemeContext';
 
 interface StatsCardProps {
-  label    : string;
-  value    : number | string;
-  icon     : string;
-  color   ?: string;
+  label: string;
+  value: number | string;
+  icon: string;
+  color?: string;
   subtitle?: string;
-  trend   ?: { value: number; label: string };
-  onPress ?: () => void;
+  trend?: { value: number; label: string };
+  onPress?: () => void;
 }
 
-export function StatsCard({ label, value, icon, color, subtitle, trend, onPress }: StatsCardProps) {
+function StatsCardComponent({ label, value, icon, color, subtitle, trend, onPress }: StatsCardProps) {
   const { colors } = useTheme();
   const c = color ?? colors.primary;
- 
-  // Animations
-  const scale = useSharedValue(0.8);
-  const opacity = useSharedValue(0);
-  const progress = useSharedValue(0); // pour la barre animée
+
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+  const progress = useSharedValue(60);
 
   useEffect(() => {
-    scale.value = withSpring(1, { damping: 14, stiffness: 120 });
-    opacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
-    progress.value = withTiming(60, { duration: 800, easing: Easing.out(Easing.cubic) }); // 60% par défaut
-  }, [opacity, progress, scale]);
+    progress.value = withTiming(60, { duration: 500, easing: Easing.out(Easing.cubic) });
+  }, [progress, value]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -46,14 +43,18 @@ export function StatsCard({ label, value, icon, color, subtitle, trend, onPress 
       <AppCard onPress={onPress} style={styles.card}>
         <View style={styles.topRow}>
           <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.value, { color: colors.text }]}>{value}</Text>
-            {subtitle && <Text numberOfLines={2} style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>}
-            {trend && (
+            <Text numberOfLines={1} style={[styles.label, { color: colors.textMuted }]}>
+              {label}
+            </Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.value, { color: colors.text }]}>
+              {value}
+            </Text>
+            {subtitle ? <Text numberOfLines={2} style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text> : null}
+            {trend ? (
               <Text numberOfLines={2} style={[styles.trend, { color: trendColor }]}>
                 {trendIcon} {Math.abs(trend.value)}% {trend.label}
               </Text>
-            )}
+            ) : null}
           </View>
           <View style={[styles.iconContainer, { backgroundColor: `${c}20` }]}>
             <Text style={[styles.icon, { color: c }]}>{icon}</Text>
@@ -108,3 +109,5 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 });
+
+export const StatsCard = React.memo(StatsCardComponent);

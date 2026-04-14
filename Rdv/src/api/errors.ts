@@ -30,15 +30,14 @@ export const getApiErrorMessage = (error: unknown, fallback = 'Une erreur est su
     if (message) return message;
 
     if (error.code === 'ECONNABORTED') {
-      return 'Le serveur met trop de temps à répondre.';
+      return 'Le serveur met trop de temps a repondre.';
     }
 
     if (isNetworkError(error)) {
-      return 'Serveur indisponible. Vérifiez la connexion backend.';
+      return 'Serveur indisponible. Verifiez la connexion backend.';
     }
   }
 
   const asApiError = error as ApiErrorShape;
   return asApiError?.message || fallback;
 };
-

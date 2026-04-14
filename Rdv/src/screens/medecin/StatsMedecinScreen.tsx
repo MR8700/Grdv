@@ -15,17 +15,16 @@ import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { Disponibilite, RendezVous } from '../../types/models.types';
 import { COLORS, REFRESH_INTERVALS } from '../../utils/constants';
- 
-function getLastSevenDays() {
-  return Array.from({ length: 7 }, (_, index) => {
-    const day = new Date();
-    day.setDate(day.getDate() - (6 - index));
-    return {
-      key: day.toISOString().slice(0, 10),
-      label: day.toLocaleDateString('fr-FR', { weekday: 'short' }),
-    };
-  });
-}
+
+const LAST_SEVEN_DAYS = Array.from({ length: 7 }, (_, index) => {
+  const day = new Date();
+  day.setHours(0, 0, 0, 0);
+  day.setDate(day.getDate() - (6 - index));
+  return {
+    key: day.toISOString().slice(0, 10),
+    label: day.toLocaleDateString('fr-FR', { weekday: 'short' }),
+  };
+});
 
 export function StatsMedecinScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
@@ -63,11 +62,34 @@ export function StatsMedecinScreen({ navigation }: { navigation?: any }) {
 
   useAutoRefresh(fetchStats, REFRESH_INTERVALS.DASHBOARD, !!user);
 
-  const cards = useMemo(() => {
-    const confirmed = rendezVous.filter((item) => item.statut_rdv === 'confirme').length;
-    const pending = rendezVous.filter((item) => item.statut_rdv === 'en_attente').length;
-    const freeSlots = disponibilites.filter((item) => item.est_libre).length;
-    return { total: rendezVous.length, confirmed, pending, freeSlots };
+  const stats = useMemo(() => {
+    let confirmed = 0;
+    let pending = 0;
+    let cancelled = 0;
+    const byDay = new Map<string, number>(LAST_SEVEN_DAYS.map((day) => [day.key, 0]));
+
+    for (const item of rendezVous) {
+      if (item.statut_rdv === 'confirme') confirmed += 1;
+      if (item.statut_rdv === 'en_attente') pending += 1;
+      if (item.statut_rdv === 'annule') cancelled += 1;
+
+      const key = String(item.date_heure_rdv || '').slice(0, 10);
+      if (byDay.has(key)) byDay.set(key, (byDay.get(key) || 0) + 1);
+    }
+
+    let freeSlots = 0;
+    for (const item of disponibilites) {
+      if (item.est_libre) freeSlots += 1;
+    }
+
+    return {
+      total: rendezVous.length,
+      confirmed,
+      pending,
+      cancelled,
+      freeSlots,
+      byDay,
+    };
   }, [disponibilites, rendezVous]);
 
   const statCards = useMemo(
@@ -75,7 +97,7 @@ export function StatsMedecinScreen({ navigation }: { navigation?: any }) {
       {
         key: 'rdv_total',
         label: 'RDV total',
-        value: cards.total,
+        value: stats.total,
         icon: 'RDV',
         color: COLORS.primary,
         subtitle: 'Charge des 30 derniers jours',
@@ -84,7 +106,7 @@ export function StatsMedecinScreen({ navigation }: { navigation?: any }) {
       {
         key: 'confirmed',
         label: 'Confirmes',
-        value: cards.confirmed,
+        value: stats.confirmed,
         icon: 'OK',
         color: COLORS.success,
         subtitle: 'Rendez-vous valides',
@@ -93,7 +115,7 @@ export function StatsMedecinScreen({ navigation }: { navigation?: any }) {
       {
         key: 'pending',
         label: 'En attente',
-        value: cards.pending,
+        value: stats.pending,
         icon: 'PEN',
         color: COLORS.warning,
         subtitle: 'Actions a traiter',
@@ -101,31 +123,34 @@ export function StatsMedecinScreen({ navigation }: { navigation?: any }) {
       },
       {
         key: 'free_slots',
-        label: 'Créneaux libres',
-        value: cards.freeSlots,
+        label: 'Creneaux libres',
+        value: stats.freeSlots,
         icon: 'FREE',
         color: COLORS.info,
-        subtitle: 'Disponibilités ouvertes',
+        subtitle: 'Disponibilites ouvertes',
         onPress: () => navigation?.navigate?.('Disponibilites'),
       },
     ],
-    [cards, navigation]
+    [navigation, stats.confirmed, stats.freeSlots, stats.pending, stats.total]
   );
 
-  const lineData = useMemo(() => {
-    return getLastSevenDays().map((day) => ({
-      label: day.label,
-      value: rendezVous.filter((item) => item.date_heure_rdv.startsWith(day.key)).length,
-    }));
-  }, [rendezVous]);
+  const lineData = useMemo(
+    () =>
+      LAST_SEVEN_DAYS.map((day) => ({
+        label: day.label,
+        value: stats.byDay.get(day.key) || 0,
+      })),
+    [stats.byDay]
+  );
 
-  const pieData = useMemo(() => {
-    return [
-      { name: 'Confirmes', value: rendezVous.filter((item) => item.statut_rdv === 'confirme').length, color: COLORS.success },
-      { name: 'En attente', value: rendezVous.filter((item) => item.statut_rdv === 'en_attente').length, color: COLORS.warning },
-      { name: 'Annules', value: rendezVous.filter((item) => item.statut_rdv === 'annule').length, color: COLORS.danger },
-    ];
-  }, [rendezVous]);
+  const pieData = useMemo(
+    () => [
+      { name: 'Confirmes', value: stats.confirmed, color: COLORS.success },
+      { name: 'En attente', value: stats.pending, color: COLORS.warning },
+      { name: 'Annules', value: stats.cancelled, color: COLORS.danger },
+    ],
+    [stats.cancelled, stats.confirmed, stats.pending]
+  );
 
   if (loading) {
     return (
@@ -138,12 +163,12 @@ export function StatsMedecinScreen({ navigation }: { navigation?: any }) {
   return (
     <ScreenWrapper scroll onRefresh={fetchStats} refreshing={loading}>
       <AppHeader
-        title="Statistiques médecin"
-        subtitle="Calculées à partir de vos données enregistrées"
+        title="Statistiques medecin"
+        subtitle="Calculees a partir de vos donnees enregistrees"
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
         rightActions={
           <PdfExportButton
-            title="Export statistiques médecin"
+            title="Export statistiques medecin"
             rows={statCards}
             columns={[
               { key: 'label', label: 'Carte', value: (s) => s.label },

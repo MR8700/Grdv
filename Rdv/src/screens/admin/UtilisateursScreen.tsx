@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import { utilisateursApi } from '../../api/utilisateurs.api';
 import { UtilisateurItem } from '../../components/admin/UtilisateurItem';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
@@ -17,7 +18,7 @@ import { REFRESH_INTERVALS } from '../../utils/constants';
 
 const FILTERS = [
   { label: 'Tous', value: undefined },
-  { label: 'Admin', value: 'admin' },
+  { label: 'Admin', value: 'administrateur' },
   { label: 'Medecin', value: 'medecin' },
   { label: 'Patient', value: 'patient' },
   { label: 'Secretaire', value: 'secretaire' },
@@ -61,38 +62,23 @@ export function UtilisateursScreen({ navigation }: { navigation: any }) {
         title="Utilisateurs"
         subtitle={`${items.length} compte(s)`}
         rightActions={
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <PdfExportButton
-              title="Export utilisateurs"
-              rows={filtered}
-              filters={{
-                Recherche: search || 'Aucune',
-                Type: filterType || 'Tous',
-              }}
-              columns={[
-                { key: 'id', label: 'ID', value: (u) => u.id_user },
-                { key: 'nom', label: 'Nom', value: (u) => u.nom || '' },
-                { key: 'prenom', label: 'Prenom', value: (u) => u.prenom || '' },
-                { key: 'login', label: 'Login', value: (u) => u.login || '' },
-                { key: 'email', label: 'Email', value: (u) => u.email || '' },
-                { key: 'type', label: 'Type', value: (u) => u.type_user || '' },
-                { key: 'statut', label: 'Statut', value: (u) => u.statut || '' },
-              ]}
-            />
-
-            <TouchableOpacity
-              disabled={!hasPermission('creer_utilisateur')}
-              onPress={() => navigation.navigate('UtilisateurDetail', { id_user: undefined })}
-              style={{
-                backgroundColor: '#ffffff33',
-                borderRadius: 8,
-                padding: 8,
-                opacity: hasPermission('creer_utilisateur') ? 1 : 0.45,
-              }}
-            >
-              <Text style={{ color: '#fff', fontSize: 18 }}>+</Text>
-            </TouchableOpacity>
-          </View>
+          <PdfExportButton
+            title="Export utilisateurs"
+            rows={filtered}
+            filters={{
+              Recherche: search || 'Aucune',
+              Type: filterType || 'Tous',
+            }}
+            columns={[
+              { key: 'id', label: 'ID', value: (u) => u.id_user },
+              { key: 'nom', label: 'Nom', value: (u) => u.nom || '' },
+              { key: 'prenom', label: 'Prenom', value: (u) => u.prenom || '' },
+              { key: 'login', label: 'Login', value: (u) => u.login || '' },
+              { key: 'email', label: 'Email', value: (u) => u.email || '' },
+              { key: 'type', label: 'Type', value: (u) => u.type_user || '' },
+              { key: 'statut', label: 'Statut', value: (u) => u.statut || '' },
+            ]}
+          />
         }
       />
 
@@ -181,6 +167,31 @@ export function UtilisateursScreen({ navigation }: { navigation: any }) {
           )}
         />
       )}
+
+      <TouchableOpacity
+        disabled={!hasPermission('creer_utilisateur')}
+        onPress={() => navigation.navigate('UtilisateurDetail', { id_user: undefined })}
+        activeOpacity={0.92}
+        style={{
+          position: 'absolute',
+          right: 22,
+          bottom: 30,
+          width: 58,
+          height: 58,
+          borderRadius: 29,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOpacity: 0.2,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 6,
+          opacity: hasPermission('creer_utilisateur') ? 1 : 0.45,
+        }}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
     </ScreenWrapper>
   );
 }

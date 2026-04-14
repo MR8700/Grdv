@@ -1,13 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  Animated,
-  ScrollView,
-  Dimensions,
-} from 'react-native';
+import { Modal, View, Text, TouchableOpacity, Animated, ScrollView, Dimensions } from 'react-native';
 import { useTheme } from '../../store/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,23 +11,13 @@ interface AppModalProps {
   height?: number | 'auto' | 'full';
   actions?: React.ReactNode;
 }
- 
+
 const { height: SCREEN_H } = Dimensions.get('window');
 
-export function AppModal({
-  visible,
-  onClose,
-  title,
-  children,
-  height = 'auto',
-  actions,
-}: AppModalProps) {
+function AppModalComponent({ visible, onClose, title, children, height = 'auto', actions }: AppModalProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  //////////////////////////////////////////////////////////////
-  // 🎬 ANIMATIONS
-  //////////////////////////////////////////////////////////////
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.98)).current;
@@ -51,7 +33,7 @@ export function AppModal({
         }),
         Animated.timing(backdropOpacity, {
           toValue: 1,
-          duration: 250,
+          duration: 220,
           useNativeDriver: true,
         }),
         Animated.spring(scale, {
@@ -63,36 +45,27 @@ export function AppModal({
       Animated.parallel([
         Animated.timing(translateY, {
           toValue: SCREEN_H,
-          duration: 260,
+          duration: 220,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
         Animated.timing(scale, {
           toValue: 0.98,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
       ]).start();
     }
   }, [backdropOpacity, scale, translateY, visible]);
 
-  const sheetHeight =
-    height === 'full'
-      ? SCREEN_H * 0.94
-      : height === 'auto'
-      ? undefined
-      : height;
+  const sheetHeight = height === 'full' ? SCREEN_H * 0.94 : height === 'auto' ? undefined : height;
 
-  //////////////////////////////////////////////////////////////
-  // 🎨 UI
-  //////////////////////////////////////////////////////////////
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      {/* BACKDROP */}
       <Animated.View
         style={{
           flex: 1,
@@ -103,27 +76,19 @@ export function AppModal({
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
       </Animated.View>
 
-      {/* SHEET */}
       <Animated.View
         style={{
           position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
-
           backgroundColor: colors.surface,
-
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
-
           paddingBottom: insets.bottom + 16,
-
           maxHeight: SCREEN_H * 0.94,
           height: sheetHeight,
-
           transform: [{ translateY }, { scale }],
-
-          // 🔥 SHADOW PREMIUM
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -6 },
           shadowOpacity: 0.2,
@@ -131,7 +96,6 @@ export function AppModal({
           elevation: 25,
         }}
       >
-        {/* HANDLE */}
         <View style={{ alignItems: 'center', paddingTop: 10 }}>
           <View
             style={{
@@ -144,8 +108,7 @@ export function AppModal({
           />
         </View>
 
-        {/* HEADER */}
-        {title && (
+        {title ? (
           <View
             style={{
               flexDirection: 'row',
@@ -177,12 +140,11 @@ export function AppModal({
                 backgroundColor: colors.surfaceAlt,
               }}
             >
-              <Text style={{ fontSize: 16, color: colors.textMuted }}>✕</Text>
+              <Text style={{ fontSize: 16, color: colors.textMuted }}>x</Text>
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
-        {/* CONTENT */}
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
@@ -190,12 +152,12 @@ export function AppModal({
             paddingBottom: 20,
           }}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews
         >
           {children}
         </ScrollView>
 
-        {/* ACTIONS */}
-        {actions && (
+        {actions ? (
           <View
             style={{
               paddingHorizontal: 20,
@@ -208,8 +170,10 @@ export function AppModal({
           >
             {actions}
           </View>
-        )}
+        ) : null}
       </Animated.View>
     </Modal>
   );
 }
+
+export const AppModal = React.memo(AppModalComponent);

@@ -1,11 +1,5 @@
 import React, { useRef } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Animated,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -20,7 +14,7 @@ interface AppHeaderProps {
   transparent?: boolean;
 }
 
-export function AppHeader({
+function AppHeaderComponent({
   title,
   subtitle,
   onBack,
@@ -45,21 +39,21 @@ export function AppHeader({
 
   const showMenu = !onBack && (Boolean(onMenu) || Boolean(drawerNavigation));
 
-  const onPressIn = () => {
+  const onPressIn = React.useCallback(() => {
     Animated.spring(scale, {
       toValue: 0.94,
       useNativeDriver: true,
     }).start();
-  };
+  }, [scale]);
 
-  const onPressOut = () => {
+  const onPressOut = React.useCallback(() => {
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
     }).start();
-  };
+  }, [scale]);
 
-  const handleLeftAction = () => {
+  const handleLeftAction = React.useCallback(() => {
     if (onBack) {
       try {
         onBack();
@@ -81,34 +75,49 @@ export function AppHeader({
       return;
     }
 
-    if (navigation.canGoBack?.()) {
-      navigation.goBack();
-    }
-  };
+    if (navigation.canGoBack?.()) navigation.goBack();
+  }, [drawerNavigation, navigation, onBack, onMenu]);
 
   const titleColor = transparent ? '#FFFFFF' : colors.headerText;
   const subtitleColor = transparent ? 'rgba(255,255,255,0.82)' : colors.headerMuted;
 
+  const outerStyle = React.useMemo(
+    () => [
+      styles.outer,
+      {
+        paddingTop: insets.top + 8,
+        backgroundColor: transparent ? 'transparent' : colors.headerBg,
+      },
+    ],
+    [colors.headerBg, insets.top, transparent]
+  );
+
+  const innerStyle = React.useMemo(
+    () => [
+      styles.inner,
+      {
+        backgroundColor: transparent ? 'transparent' : colors.headerCard,
+        borderColor: transparent ? 'transparent' : colors.border,
+        shadowColor: colors.shadow,
+      },
+    ],
+    [colors.border, colors.headerCard, colors.shadow, transparent]
+  );
+
+  const leftButtonStyle = React.useMemo(
+    () => [
+      styles.leftBtn,
+      {
+        backgroundColor: transparent ? 'rgba(255,255,255,0.18)' : colors.surfaceAlt,
+        borderColor: transparent ? 'rgba(255,255,255,0.22)' : colors.border,
+      },
+    ],
+    [colors.border, colors.surfaceAlt, transparent]
+  );
+
   return (
-    <View
-      style={[
-        styles.outer,
-        {
-          paddingTop: insets.top + 8,
-          backgroundColor: transparent ? 'transparent' : colors.headerBg,
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.inner,
-          {
-            backgroundColor: transparent ? 'transparent' : colors.headerCard,
-            borderColor: transparent ? 'transparent' : colors.border,
-            shadowColor: colors.shadow,
-          },
-        ]}
-      >
+    <View style={outerStyle}>
+      <View style={innerStyle}>
         {(onBack || showMenu) && (
           <Animated.View style={{ transform: [{ scale }] }}>
             <TouchableOpacity
@@ -116,19 +125,9 @@ export function AppHeader({
               onPressIn={onPressIn}
               onPressOut={onPressOut}
               activeOpacity={0.9}
-              style={[
-                styles.leftBtn,
-                {
-                  backgroundColor: transparent ? 'rgba(255,255,255,0.18)' : colors.surfaceAlt,
-                  borderColor: transparent ? 'rgba(255,255,255,0.22)' : colors.border,
-                },
-              ]}
+              style={leftButtonStyle}
             >
-              <Ionicons
-                name={onBack ? 'arrow-back' : 'menu'}
-                size={20}
-                color={titleColor}
-              />
+              <Ionicons name={onBack ? 'arrow-back' : 'menu'} size={20} color={titleColor} />
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -138,14 +137,14 @@ export function AppHeader({
             {title}
           </Text>
 
-          {subtitle && (
+          {subtitle ? (
             <Text numberOfLines={2} style={[styles.subtitle, { color: subtitleColor }]}>
               {subtitle}
             </Text>
-          )}
+          ) : null}
         </View>
 
-        {rightActions && <View style={styles.actions}>{rightActions}</View>}
+        {rightActions ? <View style={styles.actions}>{rightActions}</View> : null}
       </View>
     </View>
   );
@@ -193,3 +192,5 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 });
+
+export const AppHeader = React.memo(AppHeaderComponent);

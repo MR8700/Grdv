@@ -1,6 +1,5 @@
-// components/stats/StatsCarousel.tsx
 import React from 'react';
-import { Dimensions, FlatList, View } from 'react-native';
+import { FlatList, ListRenderItem, View, useWindowDimensions } from 'react-native';
 import { StatsCard } from './StatsCard';
 
 export interface StatsCarouselItem {
@@ -21,31 +20,67 @@ interface StatsCarouselProps {
 
 const GAP = 12;
 
-export function StatsCarousel({ items, autoScrollMs = 5000 }: StatsCarouselProps) {
+function StatsCarouselComponent({ items, autoScrollMs = 5000 }: StatsCarouselProps) {
   const listRef = React.useRef<FlatList<StatsCarouselItem>>(null);
-  const screenWidth = Dimensions.get('window').width;
-  const cardWidth = Math.min(Math.max(screenWidth * 0.82, 280), 420);
-  const sidePadding = (screenWidth - cardWidth) / 2;
-  const itemSize = cardWidth + GAP;
+  const { width: screenWidth } = useWindowDimensions();
+  const cardWidth = React.useMemo(() => Math.min(Math.max(screenWidth * 0.82, 280), 420), [screenWidth]);
+  const sidePadding = React.useMemo(() => (screenWidth - cardWidth) / 2, [cardWidth, screenWidth]);
+  const itemSize = React.useMemo(() => cardWidth + GAP, [cardWidth]);
   const currentIndexRef = React.useRef(0);
 
-  // Auto scroll
   React.useEffect(() => {
     if (items.length <= 1) return;
+
     const timer = setInterval(() => {
       const next = (currentIndexRef.current + 1) % items.length;
       listRef.current?.scrollToOffset({ offset: next * itemSize, animated: true });
       currentIndexRef.current = next;
     }, autoScrollMs);
+
     return () => clearInterval(timer);
   }, [autoScrollMs, itemSize, items.length]);
 
-  // Optimisation scroll
-  const getItemLayout = (_: any, index: number) => ({
-    length: itemSize,
-    offset: index * itemSize,
-    index,
-  });
+  const getItemLayout = React.useCallback(
+    (_: ArrayLike<StatsCarouselItem> | null | undefined, index: number) => ({
+      length: itemSize,
+      offset: index * itemSize,
+      index,
+    }),
+    [itemSize]
+  );
+
+  const renderItem = React.useCallback<ListRenderItem<StatsCarouselItem>>(
+    ({ item, index }) => (
+      <View style={{ width: cardWidth, marginRight: index === items.length - 1 ? 0 : GAP }}>
+        <StatsCard
+          label={item.label}
+          value={item.value}
+          icon={item.icon}
+          color={item.color}
+          subtitle={item.subtitle}
+          trend={item.trend}
+          onPress={item.onPress}
+        />
+      </View>
+    ),
+    [cardWidth, items.length]
+  );
+
+  const handleMomentumEnd = React.useCallback(
+    (event: any) => {
+      const x = event.nativeEvent.contentOffset.x;
+      currentIndexRef.current = Math.round(x / itemSize);
+    },
+    [itemSize]
+  );
+
+  const contentContainerStyle = React.useMemo(
+    () => ({
+      paddingHorizontal: sidePadding,
+      paddingVertical: 8,
+    }),
+    [sidePadding]
+  );
 
   return (
     <View>
@@ -59,29 +94,17 @@ export function StatsCarousel({ items, autoScrollMs = 5000 }: StatsCarouselProps
         snapToInterval={itemSize}
         snapToAlignment="center"
         disableIntervalMomentum
-        contentContainerStyle={{
-          paddingHorizontal: sidePadding,
-          paddingVertical: 8,
-        }}
-        onMomentumScrollEnd={(event) => {
-          const x = event.nativeEvent.contentOffset.x;
-          currentIndexRef.current = Math.round(x / itemSize);
-        }}
+        contentContainerStyle={contentContainerStyle}
+        onMomentumScrollEnd={handleMomentumEnd}
         getItemLayout={getItemLayout}
-        renderItem={({ item, index }) => (
-          <View style={{ width: cardWidth, marginRight: index === items.length - 1 ? 0 : GAP }}>
-            <StatsCard
-              label={item.label}
-              value={item.value}
-              icon={item.icon}
-              color={item.color}
-              subtitle={item.subtitle}
-              trend={item.trend}
-              onPress={item.onPress}
-            />
-          </View>
-        )}
+        renderItem={renderItem}
+        removeClippedSubviews
+        initialNumToRender={3}
+        maxToRenderPerBatch={4}
+        windowSize={5}
       />
     </View>
   );
 }
+
+export const StatsCarousel = React.memo(StatsCarouselComponent);

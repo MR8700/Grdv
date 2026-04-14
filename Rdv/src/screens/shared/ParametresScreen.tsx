@@ -19,24 +19,24 @@ interface RoleAction {
 
 const ROLE_ACTIONS: Record<RoleKey, RoleAction[]> = {
   patient: [
-    { label: 'Confidentialité du dossier', hint: 'Accès strict à vos données médicales.' },
+    { label: 'Confidentialite du dossier', hint: 'Acces strict a vos donnees medicales.' },
     { label: 'Notifications', hint: 'Rappels de rendez-vous et alertes importantes.' },
-    { label: 'Partage des documents', hint: 'Contrôle de l’export et du partage.' },
+    { label: 'Partage des documents', hint: 'Controle de l export et du partage.' },
   ],
   medecin: [
-    { label: 'Sécurité consultation', hint: 'Verrouillage rapide entre patients.' },
-    { label: 'Alertes médicales', hint: 'Priorisation des urgences et suivis.' },
-    { label: 'Exports médicaux', hint: 'Accès contrôlé aux dossiers patients.' },
+    { label: 'Securite consultation', hint: 'Verrouillage rapide entre patients.' },
+    { label: 'Alertes medicales', hint: 'Priorisation des urgences et suivis.' },
+    { label: 'Exports medicaux', hint: 'Acces controle aux dossiers patients.' },
   ],
   secretaire: [
     { label: 'Gestion agenda', hint: 'Organisation des rendez-vous et flux patients.' },
-    { label: 'File d’attente', hint: 'Suivi en temps réel des arrivées.' },
+    { label: 'File d attente', hint: 'Suivi en temps reel des arrivees.' },
     { label: 'Exports admin', hint: 'Documents de gestion et coordination.' },
   ],
   administrateur: [
-    { label: 'Sécurité globale', hint: 'Protection renforcée des systèmes.' },
-    { label: 'Audit système', hint: 'Logs et supervision complète.' },
-    { label: 'Paramètres globaux', hint: 'Configuration de toute la plateforme.' },
+    { label: 'Securite globale', hint: 'Protection renforcee des systemes.' },
+    { label: 'Audit systeme', hint: 'Logs et supervision complete.' },
+    { label: 'Parametres globaux', hint: 'Configuration de toute la plateforme.' },
   ],
 };
 
@@ -47,6 +47,8 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
   const {
     currentRole,
     biometricLockEnabled,
+    biometricAvailable,
+    biometricLabel,
     inactivityMinutes,
     warnBeforeLock,
     rolePreferences,
@@ -59,19 +61,18 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
   const roleLabel = TYPE_USER_LABELS[currentRole] ?? currentRole;
   const roleSettings = rolePreferences[currentRole];
 
-  const roleActions = useMemo(
-    () => ROLE_ACTIONS[currentRole],
-    [currentRole]
-  );
+  const roleActions = useMemo(() => ROLE_ACTIONS[currentRole], [currentRole]);
 
   const SectionTitle = ({ title }: { title: string }) => (
-    <Text style={{
-      fontSize: 15,
-      fontWeight: '800',
-      color: colors.text,
-      marginBottom: 10,
-      marginTop: 6,
-    }}>
+    <Text
+      style={{
+        fontSize: 15,
+        fontWeight: '800',
+        color: colors.text,
+        marginBottom: 10,
+        marginTop: 6,
+      }}
+    >
       {title}
     </Text>
   );
@@ -96,12 +97,8 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
         marginBottom: 10,
       }}
     >
-      <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>
-        {label}
-      </Text>
-      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>
-        {hint}
-      </Text>
+      <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{label}</Text>
+      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>{hint}</Text>
     </Pressable>
   );
 
@@ -122,11 +119,13 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
           marginBottom: 8,
         }}
       >
-        <Text style={{
-          color: active ? colors.primary : colors.text,
-          fontWeight: '700',
-          fontSize: 12,
-        }}>
+        <Text
+          style={{
+            color: active ? colors.primary : colors.text,
+            fontWeight: '700',
+            fontSize: 12,
+          }}
+        >
           {value} min
         </Text>
       </Pressable>
@@ -136,45 +135,51 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
   return (
     <ScreenWrapper scroll contentStyle={{ paddingBottom: 40 }}>
       <AppHeader
-        title="Paramètres"
+        title="Parametres"
         subtitle={`Profil ${roleLabel.toLowerCase()}`}
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
       />
 
-      {/* HEADER VISUEL */}
       <View style={{ alignItems: 'center', marginVertical: 10 }}>
-        <Text style={{ fontSize: 40, fontWeight: '900', color: colors.primary }}>
-          CFG
-        </Text>
-        <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>
-          Centre de configuration
-        </Text>
-        <Text style={{
-          fontSize: 13,
-          color: colors.textMuted,
-          textAlign: 'center',
-          marginTop: 6,
-          paddingHorizontal: 20,
-        }}>
-          Sécurité, interface et préférences adaptées à votre rôle.
+        <Text style={{ fontSize: 40, fontWeight: '900', color: colors.primary }}>CFG</Text>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>Centre de configuration</Text>
+        <Text
+          style={{
+            fontSize: 13,
+            color: colors.textMuted,
+            textAlign: 'center',
+            marginTop: 6,
+            paddingHorizontal: 20,
+          }}
+        >
+          Securite, interface et preferences adaptees a votre role.
         </Text>
       </View>
 
-      {/* COMPTE */}
       <AppCard title="Compte">
-        <SettingItem label="Modifier profil" hint="Mettre à jour vos informations." />
-        <SettingItem label="Changer mot de passe" hint="Sécuriser votre accès." />
+        <SettingItem label="Modifier profil" hint="Mettre a jour vos informations." />
+        <SettingItem label="Changer mot de passe" hint="Securiser votre acces." />
       </AppCard>
 
-      {/* SECURITE */}
-      <AppCard title="Sécurité">
+      <AppCard title="Securite">
         <AppSwitch
-          label="Verrouillage biométrique"
+          label={`Verrouillage ${biometricLabel.toLowerCase()}`}
           value={biometricLockEnabled}
           onToggle={setBiometricLockEnabled}
+          disabled={!biometricAvailable}
         />
 
-        <SectionTitle title="Temps d'inactivité" />
+        {!biometricAvailable ? (
+          <Text style={{ color: colors.warning, marginTop: 10, fontSize: 12 }}>
+            Aucun capteur biometrique compatible n est detecte sur cet appareil.
+          </Text>
+        ) : (
+          <Text style={{ color: colors.textMuted, marginTop: 10, fontSize: 12 }}>
+            Le verrouillage demandera {biometricLabel} apres inactivite ou au retour dans l application.
+          </Text>
+        )}
+
+        <SectionTitle title="Temps d inactivite" />
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {INACTIVITY_OPTIONS.map((v) => (
@@ -183,21 +188,12 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
         </View>
 
         <View style={{ marginTop: 10 }}>
-          <AppSwitch
-            label="Alerte avant verrouillage"
-            value={warnBeforeLock}
-            onToggle={setWarnBeforeLock}
-          />
+          <AppSwitch label="Alerte avant verrouillage" value={warnBeforeLock} onToggle={setWarnBeforeLock} />
         </View>
       </AppCard>
 
-      {/* AFFICHAGE */}
       <AppCard title="Affichage">
-        <AppSwitch
-          label="Mode sombre"
-          value={isDark}
-          onToggle={toggleTheme}
-        />
+        <AppSwitch label="Mode sombre" value={isDark} onToggle={toggleTheme} />
 
         <AppSwitch
           label="Notifications navigation"
@@ -206,8 +202,7 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
         />
       </AppCard>
 
-      {/* ROLE */}
-      <AppCard title={`Préférences ${roleLabel}`}>
+      <AppCard title={`Preferences ${roleLabel}`}>
         {roleActions.map((a) => (
           <SettingItem key={a.label} label={a.label} hint={a.hint} />
         ))}
@@ -225,20 +220,13 @@ export function ParametresScreen({ navigation }: { navigation?: any }) {
         />
       </AppCard>
 
-      {/* SYSTEME */}
-      <AppCard title="Système">
-        <SettingItem label="API backend" hint="Vérifier connexion serveur." />
-        <SettingItem label="À propos" hint="Infos application et version." />
+      <AppCard title="Systeme">
+        <SettingItem label="API backend" hint="Verifier la connexion serveur." />
+        <SettingItem label="A propos" hint="Infos application et version." />
       </AppCard>
 
-      {/* LOGOUT */}
       <View style={{ marginTop: 10 }}>
-        <AppButton
-          label="Déconnexion"
-          variant="danger"
-          fullWidth
-          onPress={logout}
-        />
+        <AppButton label="Deconnexion" variant="danger" fullWidth onPress={logout} />
       </View>
     </ScreenWrapper>
   );

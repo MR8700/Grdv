@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { rdvApi } from '../../api/rendezVous.api';
 import { AppDropdown } from '../../components/shared/AppDropdown';
 import { AppPagination } from '../../components/shared/AppPagination';
@@ -21,10 +21,10 @@ import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfEx
 const STATUS_OPTIONS = [
   { label: 'Tous les statuts', value: 'all' },
   { label: 'En attente', value: 'en_attente' },
-  { label: 'Confirmé', value: 'confirme' },
-  { label: 'Refusé', value: 'refuse' },
-  { label: 'Annulé', value: 'annule' },
-  { label: 'Archivé', value: 'archive' },
+  { label: 'Confirme', value: 'confirme' },
+  { label: 'Refuse', value: 'refuse' },
+  { label: 'Annule', value: 'annule' },
+  { label: 'Archive', value: 'archive' },
 ];
 
 export function GestionRdvScreen({ navigation }: { navigation?: any }) {
@@ -83,7 +83,7 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
   const exportFiltered = useCallback(async () => {
     try {
       await exportToPdfAndShare({
-        title: 'Export rendez-vous secrétaire',
+        title: 'Export rendez-vous secretaire',
         rows: filteredItems,
         filters: {
           Page: page,
@@ -96,10 +96,10 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
           { key: 'heure', label: 'Heure', value: (r) => formatTime(r.date_heure_rdv) },
           { key: 'statut', label: 'Statut', value: (r) => r.statut_rdv },
           { key: 'patient', label: 'Patient', value: (r) => `${r.patient?.utilisateur?.prenom || ''} ${r.patient?.utilisateur?.nom || ''}`.trim() },
-          { key: 'medecin', label: 'Médecin', value: (r) => `${r.medecin?.utilisateur?.prenom || ''} ${r.medecin?.utilisateur?.nom || ''}`.trim() },
+          { key: 'medecin', label: 'Medecin', value: (r) => `${r.medecin?.utilisateur?.prenom || ''} ${r.medecin?.utilisateur?.nom || ''}`.trim() },
         ],
       });
-      Toast.success('PDF prêt', `${filteredItems.length} rendez-vous exporté(s).`);
+      Toast.success('PDF pret', `${filteredItems.length} rendez-vous exporte(s).`);
     } catch (exportError) {
       Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
     }
@@ -115,22 +115,22 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
 
         await rdvApi.updateStatut(id, {
           statut_rdv,
-          motif_refus: statut_rdv === 'refuse' ? 'Refus saisi depuis l’écran secrétaire.' : undefined,
+          motif_refus: statut_rdv === 'refuse' ? 'Refus saisi depuis l ecran secretaire.' : undefined,
         });
 
-        Toast.success('Statut mis à jour', statut_rdv === 'confirme' ? 'Rendez-vous confirmé.' : 'Rendez-vous refusé.');
-        await fetchRendezVous(page);
+        Toast.success('Statut mis a jour', statut_rdv === 'confirme' ? 'Rendez-vous confirme.' : 'Rendez-vous refuse.');
+        await fetchRendezVous(pageRef.current);
       } catch (err: any) {
         const message =
           err?.response?.data?.message ??
-          `Mise à jour du rendez-vous ${target ? `du ${formatDate(target.date_heure_rdv)} à ${formatTime(target.date_heure_rdv)}` : ''} impossible.`;
+          `Mise a jour du rendez-vous ${target ? `du ${formatDate(target.date_heure_rdv)} a ${formatTime(target.date_heure_rdv)}` : ''} impossible.`;
         setError(message);
         Toast.error('Action impossible', message);
       } finally {
         setBusyId(null);
       }
     },
-    [fetchRendezVous, items, page]
+    [fetchRendezVous, items]
   );
 
   useEffect(() => {
@@ -138,60 +138,89 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
     fetchRendezVous(1);
   }, [fetchRendezVous, statusFilter]);
 
-  return (
-    <ScreenWrapper scroll onRefresh={() => fetchRendezVous(page)} refreshing={loading}>
-      <AppHeader
-        title="Gestion des rendez-vous"
-        subtitle="Validation et suivi depuis /rendez-vous"
-        onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined}
-      />
-
-      <AppDropdown label="Filtrer par statut" value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />
-      <AppInput label="Recherche rapide" value={search} onChangeText={setSearch} placeholder="Patient, médecin, motif ou ID" />
-
-      {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
-
-      {loading && items.length === 0 ? (
-        <AppLoader message="Chargement des rendez-vous..." />
-      ) : filteredItems.length === 0 ? (
-        <AppEmpty onRetry={() => fetchRendezVous(1)} subtitle="Aucun rendez-vous disponible pour ce filtre." />
-      ) : (
-        <>
-          {filteredItems.map((rdv, index) => (
-            <View key={rdv.id_rdv}>
-              <RdvCard rdv={rdv} index={index} />
-              {rdv.statut_rdv === 'en_attente' ? (
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-                  <View style={{ flex: 1 }}>
-                    <AppButton
-                      label="Confirmer"
-                      fullWidth
-                      loading={busyId === rdv.id_rdv}
-                      onPress={() => updateStatus(rdv.id_rdv, 'confirme')}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AppButton
-                      label="Refuser"
-                      variant="outline"
-                      fullWidth
-                      loading={busyId === rdv.id_rdv}
-                      onPress={() => updateStatus(rdv.id_rdv, 'refuse')}
-                    />
-                  </View>
-                </View>
-              ) : null}
+  const renderItem = useCallback(
+    ({ item, index }: { item: RendezVous; index: number }) => (
+      <View>
+        <RdvCard rdv={item} index={index} />
+        {item.statut_rdv === 'en_attente' ? (
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+            <View style={{ flex: 1 }}>
+              <AppButton
+                label="Confirmer"
+                fullWidth
+                loading={busyId === item.id_rdv}
+                onPress={() => updateStatus(item.id_rdv, 'confirme')}
+              />
             </View>
-          ))}
+            <View style={{ flex: 1 }}>
+              <AppButton
+                label="Refuser"
+                variant="outline"
+                fullWidth
+                loading={busyId === item.id_rdv}
+                onPress={() => updateStatus(item.id_rdv, 'refuse')}
+              />
+            </View>
+          </View>
+        ) : null}
+      </View>
+    ),
+    [busyId, updateStatus]
+  );
 
-          <AppPagination
-            page={page}
-            totalPages={totalPages}
-            onPrev={() => fetchRendezVous(page - 1)}
-            onNext={() => fetchRendezVous(page + 1)}
-          />
+  const listHeader = useMemo(
+    () => (
+      <>
+        <AppHeader
+          title="Gestion des rendez-vous"
+          subtitle="Validation et suivi depuis /rendez-vous"
+          onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
+          rightActions={
+            exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined
+          }
+        />
+
+        <AppDropdown label="Filtrer par statut" value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />
+        <AppInput label="Recherche rapide" value={search} onChangeText={setSearch} placeholder="Patient, medecin, motif ou ID" />
+
+        {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
+      </>
+    ),
+    [colors.danger, error, exportAllowed, exportFiltered, navigation, search, statusFilter]
+  );
+
+  return (
+    <ScreenWrapper scroll={false}>
+      {loading && items.length === 0 ? (
+        <>
+          {listHeader}
+          <AppLoader message="Chargement des rendez-vous..." />
         </>
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => String(item.id_rdv)}
+          renderItem={renderItem}
+          refreshing={loading}
+          onRefresh={() => fetchRendezVous(pageRef.current)}
+          ListHeaderComponent={listHeader}
+          ListFooterComponent={
+            filteredItems.length > 0 ? (
+              <AppPagination
+                page={page}
+                totalPages={totalPages}
+                onPrev={() => fetchRendezVous(page - 1)}
+                onNext={() => fetchRendezVous(page + 1)}
+              />
+            ) : null
+          }
+          ListEmptyComponent={<AppEmpty onRetry={() => fetchRendezVous(1)} subtitle="Aucun rendez-vous disponible pour ce filtre." />}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
+          removeClippedSubviews
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+        />
       )}
     </ScreenWrapper>
   );

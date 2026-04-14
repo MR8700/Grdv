@@ -60,6 +60,7 @@ export function PermissionsScreen() {
   const [draft, setDraft] = useState<Record<number, Set<number>>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const initialRoleAppliedRef = React.useRef(false);
 
   const selectedRole = roles.find((role) => role.id_role === selectedRoleId) || null;
   const selectedSet = useMemo(
@@ -104,7 +105,8 @@ export function PermissionsScreen() {
       });
       setDraft(nextDraft);
 
-      if (!selectedRoleId && loadedRoles.length > 0) {
+      if (!initialRoleAppliedRef.current && loadedRoles.length > 0) {
+        initialRoleAppliedRef.current = true;
         setSelectedRoleId(loadedRoles[0].id_role);
       }
     } catch {
@@ -112,7 +114,7 @@ export function PermissionsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [hasPermission, selectedRoleId]);
+  }, [hasPermission]);
 
   useEffect(() => {
     loadMatrix();
@@ -146,7 +148,7 @@ export function PermissionsScreen() {
 
   if (!hasPermission('attribuer_permissions')) {
     return (
-      <ScreenWrapper>
+      <ScreenWrapper scroll={false}>
         <AppHeader
           title="Permissions RBAC"
           subtitle="Accès restreint"
@@ -179,7 +181,7 @@ export function PermissionsScreen() {
   }
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper scroll={false}>
       <AppHeader
         title="Permissions RBAC"
         subtitle="Attribution dynamique des droits"
@@ -239,7 +241,7 @@ export function PermissionsScreen() {
         </View>
       </ScrollView>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
         {Object.entries(groupedPermissions).map(([groupKey, groupPermissions]) => (
           <View
             key={groupKey}

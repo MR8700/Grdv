@@ -1,6 +1,5 @@
-// screens/admin/UtilisateurDetailScreen.tsx
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
@@ -56,13 +55,11 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
   const [form, setForm] = useState<FormState>(initialForm);
   const [justification, setJustification] = useState('');
 
-  // Permissions
   const canCreate = hasPermission('creer_utilisateur');
   const canUpdate = hasPermission('modifier_utilisateur');
   const canRequestAccess = hasPermission('demander_navigation_compte');
   const canForceAccess = hasPermission('forcer_navigation_compte');
 
-  // Role sélectionné et options dropdown
   const selectedRole = useMemo(
     () => roles.find((role) => role.id_role === form.id_role) || null,
     [roles, form.id_role]
@@ -77,7 +74,6 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
     [roles]
   );
 
-  /** Chargement des données */
   const hydrate = useCallback(async () => {
     setLoading(true);
     try {
@@ -100,8 +96,11 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
           password: '',
         });
       } else if (matrixRoles.length > 0) {
+        setTargetUser(null);
         const defaultRole = matrixRoles.find((role) => role.nom_role === 'patient');
         setForm((prev) => ({ ...prev, id_role: defaultRole?.id_role }));
+      } else {
+        setTargetUser(null);
       }
     } catch {
       showAlert('error', 'Utilisateur', 'Impossible de charger les informations.');
@@ -116,9 +115,8 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
 
   useAutoRefresh(hydrate, 30000, Boolean(idUser));
 
-  /** Gestion changement de rôle */
   const onRoleChange = (roleId: number) => {
-    const role = roles.find((r) => r.id_role === roleId);
+    const role = roles.find((item) => item.id_role === roleId);
     if (!role) return;
     setForm((prev) => ({
       ...prev,
@@ -127,7 +125,6 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
     }));
   };
 
-  /** Validation formulaire */
   const validate = () => {
     if (!form.nom.trim() || !form.prenom.trim() || !form.login.trim()) {
       showAlert('warning', 'Champs requis', 'Nom, prenom et login sont obligatoires.');
@@ -144,7 +141,6 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
     return true;
   };
 
-  /** Soumission formulaire */
   const submit = async () => {
     if (!validate()) return;
 
@@ -175,15 +171,15 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
         await utilisateursApi.create(payload);
         showAlert('success', 'Utilisateur cree');
       }
+
       await hydrate();
     } catch {
-      showAlert('error', 'Sauvegarde impossible', "Verifiez les donnees puis reessayez.");
+      showAlert('error', 'Sauvegarde impossible', 'Verifiez les donnees puis reessayez.');
     } finally {
       setSaving(false);
     }
   };
 
-  /** Demande navigation compte */
   const requestAccess = async () => {
     if (!idUser || !canRequestAccess || !justification.trim()) return;
 
@@ -198,7 +194,6 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
     }
   };
 
-  /** Forcage navigation compte */
   const forceAccess = async () => {
     if (!idUser || !canForceAccess || !justification.trim()) return;
 
@@ -221,7 +216,7 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
   };
 
   return (
-    <ScreenWrapper>
+    <ScreenWrapper scroll={false}>
       <AppHeader
         title={idUser ? 'Compte utilisateur' : 'Ajouter utilisateur'}
         subtitle={loading ? 'Chargement...' : idUser ? `ID #${idUser}` : 'Creation'}
@@ -230,7 +225,7 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
           <PdfExportButton
             title="Export fiche utilisateur"
             rows={[form]}
-            filters={{ Mode: idUser ? 'Edition' : 'Création' }}
+            filters={{ Mode: idUser ? 'Edition' : 'Creation' }}
             columns={[
               { key: 'nom', label: 'Nom', value: (f) => f.nom },
               { key: 'prenom', label: 'Prenom', value: (f) => f.prenom },
@@ -243,19 +238,35 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
         }
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-        {/* === Informations principales === */}
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
         <AppCard title="Informations principales">
           <AppInput label="Nom" value={form.nom} onChangeText={(v) => setForm((prev) => ({ ...prev, nom: v }))} required />
           <AppInput label="Prenom" value={form.prenom} onChangeText={(v) => setForm((prev) => ({ ...prev, prenom: v }))} required />
-          <AppInput label="Email" value={form.email} onChangeText={(v) => setForm((prev) => ({ ...prev, email: v }))} keyboardType="email-address" />
+          <AppInput
+            label="Email"
+            value={form.email}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, email: v }))}
+            keyboardType="email-address"
+          />
           <AppInput label="Login" value={form.login} onChangeText={(v) => setForm((prev) => ({ ...prev, login: v }))} required />
-          {!idUser && <AppInput label="Mot de passe initial" value={form.password} onChangeText={(v) => setForm((prev) => ({ ...prev, password: v }))} secureTextEntry required />}
+          {!idUser && (
+            <AppInput
+              label="Mot de passe initial"
+              value={form.password}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, password: v }))}
+              secureTextEntry
+              required
+            />
+          )}
         </AppCard>
 
-        {/* === Attribution de rôle === */}
         <AppCard title="Attribution de role">
-          <AppDropdown label="Role principal" value={form.id_role ? String(form.id_role) : ''} options={roleOptions} onValueChange={(value) => onRoleChange(Number(value))} />
+          <AppDropdown
+            label="Role principal"
+            value={form.id_role ? String(form.id_role) : ''}
+            options={roleOptions}
+            onValueChange={(value) => onRoleChange(Number(value))}
+          />
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             {roles.map((role) => {
@@ -280,41 +291,83 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
           </View>
 
           {selectedRole && (
-            <View style={{ marginTop: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 10, backgroundColor: colors.surfaceAlt }}>
-              <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 8 }}>Permissions accordées ({selectedRole.permissions?.length || 0})</Text>
+            <View
+              style={{
+                marginTop: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border,
+                padding: 10,
+                backgroundColor: colors.surfaceAlt,
+              }}
+            >
+              <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 8 }}>
+                Permissions accordees ({selectedRole.permissions?.length || 0})
+              </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
                 {(selectedRole.permissions || []).map((perm) => (
-                  <AppBadge key={perm.id_permission} label={perm.nom_permission} color={`${colors.primary}1B`} textColor={colors.primary} size="sm" />
+                  <AppBadge
+                    key={perm.id_permission}
+                    label={perm.nom_permission}
+                    color={`${colors.primary}1B`}
+                    textColor={colors.primary}
+                    size="sm"
+                  />
                 ))}
               </View>
             </View>
           )}
         </AppCard>
 
-        {/* === Navigation sur compte utilisateur (Admin) === */}
         {idUser && (
           <AppCard title="Navigation sur compte utilisateur" subtitle="Workflow demande puis forcage admin">
             <AppInput label="Justification" value={justification} onChangeText={setJustification} multiline required />
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-              <AppButton label="Demander permission" onPress={requestAccess} loading={saving} disabled={!canRequestAccess || currentUser?.id_user === idUser} style={{ flex: 1 }} />
-              <AppButton label="Forcer (Rouge)" variant="danger" onPress={forceAccess} loading={saving} disabled={!canForceAccess || currentUser?.id_user === idUser} style={{ flex: 1 }} />
+              <AppButton
+                label="Demander permission"
+                onPress={requestAccess}
+                loading={saving}
+                disabled={!canRequestAccess || currentUser?.id_user === idUser}
+                style={{ flex: 1 }}
+              />
+              <AppButton
+                label="Forcer"
+                variant="danger"
+                onPress={forceAccess}
+                loading={saving}
+                disabled={!canForceAccess || currentUser?.id_user === idUser}
+                style={{ flex: 1 }}
+              />
             </View>
 
             <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8 }}>
-              Le forcage envoie automatiquement une notification à l'utilisateur cible avec votre justification.
+              Le forcage envoie automatiquement une notification a l'utilisateur cible avec votre justification.
             </Text>
           </AppCard>
         )}
 
-        {/* === Footer - Bouton principal === */}
         <View style={{ marginTop: 12 }}>
-          <AppButton label={idUser ? 'Enregistrer les modifications' : 'Creer le compte'} onPress={submit} loading={saving} fullWidth disabled={idUser ? !canUpdate : !canCreate} />
+          <AppButton
+            label={idUser ? 'Enregistrer les modifications' : 'Creer le compte'}
+            onPress={submit}
+            loading={saving}
+            fullWidth
+            disabled={idUser ? !canUpdate : !canCreate}
+          />
         </View>
 
-        {/* === Etat du compte === */}
         {targetUser && (
-          <View style={{ marginTop: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 14, padding: 12 }}>
+          <View
+            style={{
+              marginTop: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
+              borderRadius: 14,
+              padding: 12,
+            }}
+          >
             <Text style={{ color: colors.text, fontWeight: '700' }}>Etat du compte</Text>
             <Text style={{ color: colors.textMuted, marginTop: 4 }}>
               {targetUser.statut} • type: {TYPE_USER_LABELS[targetUser.type_user]}

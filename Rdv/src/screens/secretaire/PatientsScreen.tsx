@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text } from 'react-native';
+import { FlatList, Text } from 'react-native';
 import { patientsApi } from '../../api/patients.api';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { PatientCard } from '../../components/rdv/PatientCard';
@@ -15,7 +15,7 @@ import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { Patient } from '../../types/models.types';
 import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfExport';
- 
+
 export function PatientsScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
   const { currentRole, rolePreferences } = useAppSettings();
@@ -32,24 +32,21 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
     pageRef.current = page;
   }, [page]);
 
-  const fetchPatients = useCallback(
-    async (targetPage = pageRef.current) => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await patientsApi.getAll({ page: targetPage, limit: 10 });
-        const payload = response.data as PaginatedResponse<Patient>;
-        setItems(payload.data);
-        setPage(payload.meta.page);
-        setTotalPages(payload.meta.totalPages || 1);
-      } catch (err: any) {
-        setError(err?.response?.data?.message ?? 'Impossible de charger les patients.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const fetchPatients = useCallback(async (targetPage = pageRef.current) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await patientsApi.getAll({ page: targetPage, limit: 10 });
+      const payload = response.data as PaginatedResponse<Patient>;
+      setItems(payload.data);
+      setPage(payload.meta.page);
+      setTotalPages(payload.meta.totalPages || 1);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Impossible de charger les patients.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -65,56 +62,85 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
   const exportFiltered = useCallback(async () => {
     try {
       await exportToPdfAndShare({
-        title: 'Export patients sécretaire',
+        title: 'Export patients secretaire',
         rows: filteredItems,
         filters: { Page: page, Recherche: search || 'Aucune' },
         columns: [
           { key: 'id', label: 'ID', value: (p) => p.id_user },
           { key: 'nom', label: 'Nom', value: (p) => p.utilisateur?.nom || '' },
-          { key: 'prenom', label: 'Prénom', value: (p) => p.utilisateur?.prenom || '' },
+          { key: 'prenom', label: 'Prenom', value: (p) => p.utilisateur?.prenom || '' },
           { key: 'email', label: 'Email', value: (p) => p.utilisateur?.email || '' },
           { key: 'dossier', label: 'Dossier', value: (p) => p.id_dossier_medical || '' },
           { key: 'groupe', label: 'Groupe sanguin', value: (p) => p.groupe_sanguin || '' },
         ],
       });
-      Toast.success('PDF prêt', `${filteredItems.length} patient(s) exporté(s).`);
+      Toast.success('PDF pret', `${filteredItems.length} patient(s) exporte(s).`);
     } catch (exportError) {
       Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
     }
   }, [filteredItems, page, search]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchPatients(1);
   }, [fetchPatients]);
 
+  const renderItem = useCallback(
+    ({ item }: { item: Patient }) => <PatientCard patient={item} subtitle={item.id_dossier_medical} />,
+    []
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <>
+        <AppHeader
+          title="Patients"
+          subtitle="Vue secretaire connectee a l'application"
+          onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
+          rightActions={
+            exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined
+          }
+        />
+
+        <AppInput label="Recherche patient" value={search} onChangeText={setSearch} placeholder="Nom, email ou dossier" />
+
+        {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
+      </>
+    ),
+    [colors.danger, error, exportAllowed, exportFiltered, navigation, search]
+  );
+
   return (
-    <ScreenWrapper scroll onRefresh={() => fetchPatients(page)} refreshing={loading}>
-      <AppHeader
-        title="Patients"
-        subtitle="Vue secrétaire connectée à l’application"
-        onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined}
-      />
-
-      <AppInput label="Recherche patient" value={search} onChangeText={setSearch} placeholder="Nom, email ou dossier" />
-
-      {error && <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text>}
+    <ScreenWrapper scroll={false}>
       {loading && items.length === 0 ? (
-        <AppLoader message="Chargement des patients..." />
-      ) : filteredItems.length === 0 ? (
-        <AppEmpty onRetry={() => fetchPatients(1)} subtitle="Aucun patient retourné pour ce filtre." />
-      ) : (
         <>
-          {filteredItems.map((patient) => (
-            <PatientCard key={patient.id_user} patient={patient} subtitle={patient.id_dossier_medical} />
-          ))}
-          <AppPagination
-            page={page}
-            totalPages={totalPages}
-            onPrev={() => fetchPatients(page - 1)}
-            onNext={() => fetchPatients(page + 1)}
-          />
+          {listHeader}
+          <AppLoader message="Chargement des patients..." />
         </>
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => String(item.id_user)}
+          renderItem={renderItem}
+          refreshing={loading}
+          onRefresh={() => fetchPatients(pageRef.current)}
+          ListHeaderComponent={listHeader}
+          ListFooterComponent={
+            filteredItems.length > 0 ? (
+              <AppPagination
+                page={page}
+                totalPages={totalPages}
+                onPrev={() => fetchPatients(page - 1)}
+                onNext={() => fetchPatients(page + 1)}
+              />
+            ) : null
+          }
+          ListEmptyComponent={<AppEmpty onRetry={() => fetchPatients(1)} subtitle="Aucun patient retourne pour ce filtre." />}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+        />
       )}
     </ScreenWrapper>
   );

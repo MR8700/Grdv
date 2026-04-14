@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Text, View } from 'react-native';
 
 import { rdvApi } from '../../api/rendezVous.api';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
@@ -19,25 +19,25 @@ import { RendezVous, StatutRdv } from '../../types/models.types';
 import { REFRESH_INTERVALS } from '../../utils/constants';
 import { formatDate, formatTime } from '../../utils/formatters';
 import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfExport';
- 
+
 const STATUS_OPTIONS = [
   { label: 'Tous les statuts', value: 'all' },
   { label: 'En attente', value: 'en_attente' },
-  { label: 'Confirmé', value: 'confirme' },
-  { label: 'Refusé', value: 'refuse' },
-  { label: 'Annulé', value: 'annule' },
-  { label: 'Archivé', value: 'archive' },
+  { label: 'Confirme', value: 'confirme' },
+  { label: 'Refuse', value: 'refuse' },
+  { label: 'Annule', value: 'annule' },
+  { label: 'Archive', value: 'archive' },
 ];
 
 function buildStatusMessage(rdv: RendezVous) {
-  const when = `${formatDate(rdv.date_heure_rdv)} à ${formatTime(rdv.date_heure_rdv)}`;
+  const when = `${formatDate(rdv.date_heure_rdv)} a ${formatTime(rdv.date_heure_rdv)}`;
   switch (rdv.statut_rdv) {
     case 'confirme':
-      return { title: 'Rendez-vous confirmé', body: `Votre rendez-vous du ${when} est confirmé.` };
+      return { title: 'Rendez-vous confirme', body: `Votre rendez-vous du ${when} est confirme.` };
     case 'refuse':
-      return { title: 'Rendez-vous refusé', body: `Votre demande du ${when} a été refusée.` };
+      return { title: 'Rendez-vous refuse', body: `Votre demande du ${when} a ete refusee.` };
     case 'annule':
-      return { title: 'Rendez-vous annulé', body: `Votre rendez-vous du ${when} a été annulé.` };
+      return { title: 'Rendez-vous annule', body: `Votre rendez-vous du ${when} a ete annule.` };
     default:
       return null;
   }
@@ -79,9 +79,7 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
           const old = prev[rdv.id_rdv];
           if (old && old !== rdv.statut_rdv) {
             const msg = buildStatusMessage(rdv);
-            if (msg) {
-              Toast.info(msg.title, msg.body, 4500);
-            }
+            if (msg) Toast.info(msg.title, msg.body, 4500);
           }
           prev[rdv.id_rdv] = rdv.statut_rdv;
         }
@@ -99,13 +97,11 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
     [statusFilter]
   );
 
-  const filteredItems = items;
-
   const exportFiltered = useCallback(async () => {
     try {
       await exportToPdfAndShare({
         title: 'Export rendez-vous patient',
-        rows: filteredItems,
+        rows: items,
         filters: { Page: page, Statut: statusFilter === 'all' ? 'Tous' : statusFilter },
         columns: [
           { key: 'id', label: 'ID', value: (r) => r.id_rdv },
@@ -113,22 +109,26 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
           { key: 'heure', label: 'Heure', value: (r) => formatTime(r.date_heure_rdv) },
           { key: 'statut', label: 'Statut', value: (r) => r.statut_rdv },
           { key: 'motif', label: 'Motif', value: (r) => r.motif || '' },
-          { key: 'medecin', label: 'Médecin', value: (r) => `${r.medecin?.utilisateur?.prenom || ''} ${r.medecin?.utilisateur?.nom || ''}`.trim() },
+          {
+            key: 'medecin',
+            label: 'Medecin',
+            value: (r) => `${r.medecin?.utilisateur?.prenom || ''} ${r.medecin?.utilisateur?.nom || ''}`.trim(),
+          },
         ],
       });
-      Toast.success('PDF prêt', `${filteredItems.length} rendez-vous exporté(s).`);
+      Toast.success('PDF pret', `${items.length} rendez-vous exporte(s).`);
     } catch (exportError) {
       Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
     }
-  }, [filteredItems, page, statusFilter]);
+  }, [items, page, statusFilter]);
 
   const cancelRendezVous = useCallback(
     async (id: number) => {
       try {
         setBusyId(id);
         await rdvApi.cancel(id);
-        Toast.success('Rendez-vous annulé', 'Votre demande a bien été prise en compte.');
-        await fetchRendezVous(page);
+        Toast.success('Rendez-vous annule', 'Votre demande a bien ete prise en compte.');
+        await fetchRendezVous(pageRef.current);
       } catch (err: any) {
         setError(err?.response?.data?.message ?? 'Annulation impossible.');
         Toast.error('Annulation impossible', err?.response?.data?.message ?? 'Erreur backend.');
@@ -136,10 +136,10 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
         setBusyId(null);
       }
     },
-    [fetchRendezVous, page]
+    [fetchRendezVous]
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     pageRef.current = 1;
     fetchRendezVous(1);
   }, [fetchRendezVous, statusFilter]);
@@ -148,49 +148,84 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
     fetchRendezVous(pageRef.current);
   }, REFRESH_INTERVALS.AGENDA);
 
+  const renderItem = useCallback(
+    ({ item, index }: { item: RendezVous; index: number }) => (
+      <View>
+        <RdvCard rdv={item} index={index} />
+        {item.statut_rdv !== 'annule' && item.statut_rdv !== 'archive' && (
+          <View style={{ marginBottom: 16 }}>
+            <AppButton
+              label={busyId === item.id_rdv ? 'Annulation...' : 'Annuler'}
+              variant="outline"
+              fullWidth
+              loading={busyId === item.id_rdv}
+              onPress={() => cancelRendezVous(item.id_rdv)}
+            />
+          </View>
+        )}
+      </View>
+    ),
+    [busyId, cancelRendezVous]
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <>
+        <AppHeader
+          title="Mes rendez-vous"
+          subtitle="Suivi et confirmation"
+          onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
+          rightActions={
+            exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined
+          }
+        />
+
+        <AppDropdown label="Filtrer par statut" value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />
+
+        {error ? <Text style={{ color: colors.danger, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
+      </>
+    ),
+    [colors.danger, error, exportAllowed, exportFiltered, navigation, statusFilter]
+  );
+
   return (
-    <ScreenWrapper scroll onRefresh={() => fetchRendezVous(page)} refreshing={loading}>
-      <AppHeader
-        title="Mes rendez-vous"
-        subtitle="Suivi et confirmation"
-        onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined}
-      />
-
-      <AppDropdown label="Filtrer par statut" value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />
-
-      {error && <Text style={{ color: colors.danger, marginBottom: 12, fontWeight: '600' }}>{error}</Text>}
-
+    <ScreenWrapper scroll={false}>
       {loading && items.length === 0 ? (
-        <AppLoader message="Chargement des rendez-vous..." />
-      ) : filteredItems.length === 0 ? (
-        <AppEmpty title="Aucun rendez-vous" subtitle="Aucun élément ne correspond au filtre actuel." onRetry={() => fetchRendezVous(1)} />
+        <>
+          {listHeader}
+          <AppLoader message="Chargement des rendez-vous..." />
+        </>
       ) : (
-        <View>
-          {filteredItems.map((rdv, index) => (
-            <View key={rdv.id_rdv}>
-              <RdvCard rdv={rdv} index={index} />
-              {rdv.statut_rdv !== 'annule' && rdv.statut_rdv !== 'archive' && (
-                <View style={{ marginBottom: 16 }}>
-                  <AppButton
-                    label={busyId === rdv.id_rdv ? 'Annulation...' : 'Annuler'}
-                    variant="outline"
-                    fullWidth
-                    loading={busyId === rdv.id_rdv}
-                    onPress={() => cancelRendezVous(rdv.id_rdv)}
-                  />
-                </View>
-              )}
-            </View>
-          ))}
-
-          <AppPagination
-            page={page}
-            totalPages={totalPages}
-            onPrev={() => fetchRendezVous(page - 1)}
-            onNext={() => fetchRendezVous(page + 1)}
-          />
-        </View>
+        <FlatList
+          data={items}
+          keyExtractor={(item) => String(item.id_rdv)}
+          renderItem={renderItem}
+          refreshing={loading}
+          onRefresh={() => fetchRendezVous(pageRef.current)}
+          ListHeaderComponent={listHeader}
+          ListFooterComponent={
+            items.length > 0 ? (
+              <AppPagination
+                page={page}
+                totalPages={totalPages}
+                onPrev={() => fetchRendezVous(page - 1)}
+                onNext={() => fetchRendezVous(page + 1)}
+              />
+            ) : null
+          }
+          ListEmptyComponent={
+            <AppEmpty
+              title="Aucun rendez-vous"
+              subtitle="Aucun element ne correspond au filtre actuel."
+              onRetry={() => fetchRendezVous(1)}
+            />
+          }
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
+          removeClippedSubviews
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+        />
       )}
     </ScreenWrapper>
   );

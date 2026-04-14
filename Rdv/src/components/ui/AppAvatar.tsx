@@ -1,13 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  ImageStyle,
-  ViewStyle,
-  Animated,
-  Pressable,
-} from 'react-native';
+import React from 'react';
+import { View, Text, Image, ImageStyle, ViewStyle, Pressable } from 'react-native';
 import { useTheme } from '../../store/ThemeContext';
 import { formatInitiales } from '../../utils/formatters';
 import { API_ORIGIN } from '../../utils/constants';
@@ -20,67 +12,59 @@ interface AppAvatarProps {
   style?: ViewStyle;
   imageStyle?: ImageStyle;
   onPress?: () => void;
-} 
+}
 
-export function AppAvatar({
-  nom,
-  prenom,
-  photoPath,
-  size = 44,
-  style,
-  imageStyle,
-  onPress,
-}: AppAvatarProps) {
+const AVATAR_COLORS = ['#1D6FA4', '#0F6E56', '#854F0B', '#712B13', '#534AB7'];
+
+function AppAvatarComponent({ nom, prenom, photoPath, size = 44, style, imageStyle, onPress }: AppAvatarProps) {
   const { colors } = useTheme();
-  const initiales = formatInitiales(nom, prenom);
-  const uri = photoPath ? `${API_ORIGIN}/${photoPath}` : null;
+  const initiales = React.useMemo(() => formatInitiales(nom, prenom), [nom, prenom]);
+  const uri = React.useMemo(() => (photoPath ? `${API_ORIGIN}/${photoPath}` : null), [photoPath]);
+  const bgColor = React.useMemo(() => {
+    const seed = initiales.charCodeAt(0) || 0;
+    return AVATAR_COLORS[seed % AVATAR_COLORS.length];
+  }, [initiales]);
 
-  //////////////////////////////////////////////////////////////
-  // 🎬 ANIMATIONS
-  //////////////////////////////////////////////////////////////
-  const scale = useRef(new Animated.Value(0.9)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const wrapperStyle = React.useMemo<ViewStyle>(
+    () => ({
+      borderRadius: size / 2,
+      padding: 2,
+      backgroundColor: 'rgba(255,255,255,0.6)',
+      shadowColor: '#000',
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 5,
+    }),
+    [size]
+  );
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-    ]).start();
-  }, [opacity, scale]);
+  const imageBaseStyle = React.useMemo<ImageStyle>(
+    () => ({
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor: colors.surfaceAlt,
+    }),
+    [colors.surfaceAlt, size]
+  );
 
-  //////////////////////////////////////////////////////////////
-  // 🎨 BACKGROUND DYNAMIQUE
-  //////////////////////////////////////////////////////////////
-  const colors_list = ['#1D6FA4', '#0F6E56', '#854F0B', '#712B13', '#534AB7'];
-  const bgColor = colors_list[initiales.charCodeAt(0) % colors_list.length];
+  const fallbackStyle = React.useMemo<ViewStyle>(
+    () => ({
+      width: size,
+      height: size,
+      borderRadius: size / 2,
+      backgroundColor: bgColor,
+      alignItems: 'center',
+      justifyContent: 'center',
+    }),
+    [bgColor, size]
+  );
 
-  //////////////////////////////////////////////////////////////
-  // 🧩 CONTENU AVATAR
-  //////////////////////////////////////////////////////////////
   const content = uri ? (
-    <Image
-      source={{ uri }}
-      style={[
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: colors.surfaceAlt,
-        },
-        imageStyle,
-      ]}
-    />
+    <Image source={{ uri }} style={[imageBaseStyle, imageStyle]} />
   ) : (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: bgColor,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
+    <View style={fallbackStyle}>
       <Text
         style={{
           color: '#FFF',
@@ -94,9 +78,6 @@ export function AppAvatar({
     </View>
   );
 
-  //////////////////////////////////////////////////////////////
-  // 🧠 WRAPPER PREMIUM
-  //////////////////////////////////////////////////////////////
   return (
     <Pressable
       onPress={onPress}
@@ -106,27 +87,7 @@ export function AppAvatar({
         },
       ]}
     >
-      <Animated.View
-        style={[
-          {
-            opacity,
-            transform: [{ scale }],
-            borderRadius: size / 2,
-
-            // 🔥 BORDER PREMIUM (ring effect)
-            padding: 2,
-            backgroundColor: 'rgba(255,255,255,0.6)',
-
-            // 🔥 SHADOW SOFT
-            shadowColor: '#000',
-            shadowOpacity: 0.12,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 3 },
-            elevation: 5,
-          },
-          style,
-        ]}
-      >
+      <View style={[wrapperStyle, style]}>
         <View
           style={{
             borderRadius: size / 2,
@@ -136,7 +97,9 @@ export function AppAvatar({
         >
           {content}
         </View>
-      </Animated.View>
+      </View>
     </Pressable>
   );
 }
+
+export const AppAvatar = React.memo(AppAvatarComponent);

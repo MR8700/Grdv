@@ -1,25 +1,12 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TextInputProps,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, TextInputProps, ViewStyle } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-  interpolateColor,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, interpolateColor } from 'react-native-reanimated';
 
 import { useTheme } from '../../store/ThemeContext';
 import { Toast } from './AppAlert';
- 
+
 interface AppInputProps extends TextInputProps {
   label: string;
   error?: string;
@@ -30,7 +17,7 @@ interface AppInputProps extends TextInputProps {
   historyEnabled?: boolean;
 }
 
-export function AppInput({
+function AppInputComponent({
   label,
   error,
   containerStyle,
@@ -59,72 +46,42 @@ export function AppInput({
     index: 0,
   });
 
-  //////////////////////////////////////////////////////////////
-  // 🎬 ANIMATIONS
-  //////////////////////////////////////////////////////////////
-  const labelAnim = useSharedValue(value ? 1 : 0);
+  const labelAnim = useSharedValue(stringValue ? 1 : 0);
   const focusAnim = useSharedValue(0);
 
-  //////////////////////////////////////////////////////////////
-  // 🧠 LABEL ANIMATION
-  //////////////////////////////////////////////////////////////
   const labelStyle = useAnimatedStyle(() => ({
     transform: [
-      {
-        translateY: interpolate(labelAnim.value, [0, 1], [10, -14]),
-      },
-      {
-        scale: interpolate(labelAnim.value, [0, 1], [1, 0.78]),
-      },
+      { translateY: interpolate(labelAnim.value, [0, 1], [10, -14]) },
+      { scale: interpolate(labelAnim.value, [0, 1], [1, 0.78]) },
     ],
-    color: interpolateColor(
-      labelAnim.value,
-      [0, 1],
-      [colors.textMuted, colors.primary]
-    ),
+    color: interpolateColor(labelAnim.value, [0, 1], [colors.textMuted, colors.primary]),
   }));
 
-  //////////////////////////////////////////////////////////////
-  // 🎨 BORDER + SHADOW
-  //////////////////////////////////////////////////////////////
   const containerAnim = useAnimatedStyle(() => ({
-    borderColor: error
-      ? colors.danger
-      : interpolateColor(
-          focusAnim.value,
-          [0, 1],
-          [colors.border, colors.primary]
-        ),
+    borderColor: error ? colors.danger : interpolateColor(focusAnim.value, [0, 1], [colors.border, colors.primary]),
     borderWidth: interpolate(focusAnim.value, [0, 1], [1, 2]),
-    transform: [
-      {
-        scale: interpolate(focusAnim.value, [0, 1], [1, 1.01]),
-      },
-    ],
+    transform: [{ scale: interpolate(focusAnim.value, [0, 1], [1, 1.01]) }],
   }));
 
-  //////////////////////////////////////////////////////////////
-  // 🎯 HANDLERS
-  //////////////////////////////////////////////////////////////
-  const onFocus = () => {
+  const onFocus = React.useCallback(() => {
     setFocused(true);
     focusAnim.value = withTiming(1, { duration: 180 });
     labelAnim.value = withTiming(1, { duration: 180 });
-  };
+  }, [focusAnim, labelAnim]);
 
-  const onBlur = () => {
+  const onBlur = React.useCallback(() => {
     setFocused(false);
     focusAnim.value = withTiming(0, { duration: 180 });
 
-    if (!value) {
+    if (!stringValue) {
       labelAnim.value = withTiming(0, { duration: 180 });
     }
-  };
+  }, [focusAnim, labelAnim, stringValue]);
 
   React.useEffect(() => {
-    const hasValue = value !== undefined && value !== null && String(value).length > 0;
+    const hasValue = stringValue.length > 0;
     labelAnim.value = withTiming(hasValue || focused ? 1 : 0, { duration: 140 });
-  }, [focused, value, labelAnim]);
+  }, [focused, labelAnim, stringValue]);
 
   React.useEffect(() => {
     if (!historyActive) return;
@@ -142,25 +99,25 @@ export function AppInput({
     });
   }, [historyActive, stringValue]);
 
-  const applyHistory = (type: 'undo' | 'redo') => {
-    if (!historyActive || !onChangeText) return;
-    const nextIndex = type === 'undo' ? history.index - 1 : history.index + 1;
-    if (nextIndex < 0 || nextIndex >= history.stack.length) return;
-    const nextValue = history.stack[nextIndex];
-    historyActionRef.current = true;
-    setHistory((prev) => ({ ...prev, index: nextIndex }));
-    onChangeText(nextValue);
-    Toast.info('Historique', type === 'undo' ? 'Retour de saisie' : 'Avance de saisie', 1200);
-  };
+  const applyHistory = React.useCallback(
+    (type: 'undo' | 'redo') => {
+      if (!historyActive || !onChangeText) return;
+      const nextIndex = type === 'undo' ? history.index - 1 : history.index + 1;
+      if (nextIndex < 0 || nextIndex >= history.stack.length) return;
+      const nextValue = history.stack[nextIndex];
+      historyActionRef.current = true;
+      setHistory((prev) => ({ ...prev, index: nextIndex }));
+      onChangeText(nextValue);
+      Toast.info('Historique', type === 'undo' ? 'Retour de saisie' : 'Avance de saisie', 1200);
+    },
+    [history.index, history.stack, historyActive, onChangeText]
+  );
 
   const controlsVisible = historyActive && focused;
   const canUndo = controlsVisible && history.index > 0;
   const canRedo = controlsVisible && history.index < history.stack.length - 1;
   const rightPadding = (controlsVisible ? 66 : 0) + (rightIcon ? 42 : 0);
 
-  //////////////////////////////////////////////////////////////
-  // 🧩 UI
-  //////////////////////////////////////////////////////////////
   return (
     <View style={[{ marginBottom: 22 }, containerStyle]}>
       <Animated.View
@@ -173,8 +130,6 @@ export function AppInput({
             backgroundColor: colors.surface,
             position: 'relative',
             minHeight: 64,
-
-            // 🔥 shadow premium
             shadowColor: '#000',
             shadowOpacity: focused ? 0.08 : 0.04,
             shadowRadius: 10,
@@ -184,7 +139,6 @@ export function AppInput({
           containerAnim,
         ]}
       >
-        {/* LABEL */}
         <Animated.Text
           style={[
             {
@@ -199,10 +153,9 @@ export function AppInput({
           ]}
         >
           {label}
-          {required && <Text style={{ color: colors.danger }}> *</Text>}
+          {required ? <Text style={{ color: colors.danger }}> *</Text> : null}
         </Animated.Text>
 
-        {/* INPUT */}
         <TextInput
           {...props}
           value={stringValue}
@@ -223,7 +176,7 @@ export function AppInput({
           ]}
         />
 
-        {controlsVisible && (
+        {controlsVisible ? (
           <View
             style={{
               position: 'absolute',
@@ -266,10 +219,9 @@ export function AppInput({
               <Ionicons name="arrow-redo" size={14} color={canRedo ? colors.primary : colors.textLight} />
             </TouchableOpacity>
           </View>
-        )}
+        ) : null}
 
-        {/* RIGHT ICON */}
-        {rightIcon && (
+        {rightIcon ? (
           <TouchableOpacity
             onPress={onRightPress}
             style={{
@@ -282,11 +234,10 @@ export function AppInput({
           >
             {rightIcon}
           </TouchableOpacity>
-        )}
+        ) : null}
       </Animated.View>
 
-      {/* ERROR */}
-      {error && (
+      {error ? (
         <Text
           style={{
             color: colors.danger,
@@ -298,7 +249,9 @@ export function AppInput({
         >
           {error}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 }
+
+export const AppInput = React.memo(AppInputComponent);
