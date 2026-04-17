@@ -181,7 +181,7 @@ export function PermissionsScreen() {
   }
 
   return (
-    <ScreenWrapper scroll={false}>
+    <ScreenWrapper scroll={true}>
       <AppHeader
         title="Permissions RBAC"
         subtitle="Attribution dynamique des droits"
@@ -241,7 +241,7 @@ export function PermissionsScreen() {
         </View>
       </ScrollView>
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 24 }}>
         {Object.entries(groupedPermissions).map(([groupKey, groupPermissions]) => (
           <View
             key={groupKey}

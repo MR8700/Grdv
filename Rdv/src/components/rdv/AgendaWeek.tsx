@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../store/ThemeContext';
 import { AppCard } from '../ui/AppCard';
 
@@ -29,12 +29,19 @@ export function AgendaWeek({ title = 'Semaine', days, activeKey, onSelectDay }: 
 
           return (
             <View key={day.key} style={{ width: '31%' }}>
-              <AppCard
+              <TouchableOpacity
                 onPress={() => onSelectDay(day.key)}
                 style={{
                   backgroundColor: active ? colors.primary : colors.surface,
                   borderColor: active ? colors.primary : colors.border,
+                  borderWidth: 1,
+                  borderRadius: 18,
+                  paddingVertical: 14,
+                  paddingHorizontal: 8,
+                  shadowOpacity: 0,
+                  elevation: 0,
                 }}
+                activeOpacity={0.92}
               >
                 <Text style={{ color: active ? '#FFFFFF' : colors.text, fontWeight: '700', textAlign: 'center' }}>
                   {day.dayLabel}
@@ -69,7 +76,7 @@ export function AgendaWeek({ title = 'Semaine', days, activeKey, onSelectDay }: 
                 >
                   {day.totalLibre} libres
                 </Text>
-              </AppCard>
+              </TouchableOpacity>
             </View>
           );
         })}

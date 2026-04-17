@@ -16,10 +16,37 @@ interface AppAvatarProps {
 
 const AVATAR_COLORS = ['#1D6FA4', '#0F6E56', '#854F0B', '#712B13', '#534AB7'];
 
-function AppAvatarComponent({ nom, prenom, photoPath, size = 44, style, imageStyle, onPress }: AppAvatarProps) {
+function resolveImageUri(photoPath?: string | null) {
+  if (!photoPath) return null;
+
+  // 🔥 CAS 1: déjà une URL complète
+  if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+    return photoPath;
+  }
+
+  // 🔥 CAS 2: path relatif backend
+  return `${API_ORIGIN}/${photoPath}`;
+}
+
+function AppAvatarComponent({
+  nom,
+  prenom,
+  photoPath,
+  size = 44,
+  style,
+  imageStyle,
+  onPress,
+}: AppAvatarProps) {
   const { colors } = useTheme();
-  const initiales = React.useMemo(() => formatInitiales(nom, prenom), [nom, prenom]);
-  const uri = React.useMemo(() => (photoPath ? `${API_ORIGIN}/${photoPath}` : null), [photoPath]);
+  const [imgError, setImgError] = React.useState(false);
+
+  const initiales = React.useMemo(
+    () => formatInitiales(nom, prenom),
+    [nom, prenom]
+  );
+
+  const uri = React.useMemo(() => resolveImageUri(photoPath), [photoPath]);
+
   const bgColor = React.useMemo(() => {
     const seed = initiales.charCodeAt(0) || 0;
     return AVATAR_COLORS[seed % AVATAR_COLORS.length];
@@ -61,31 +88,14 @@ function AppAvatarComponent({ nom, prenom, photoPath, size = 44, style, imageSty
     [bgColor, size]
   );
 
-  const content = uri ? (
-    <Image source={{ uri }} style={[imageBaseStyle, imageStyle]} />
-  ) : (
-    <View style={fallbackStyle}>
-      <Text
-        style={{
-          color: '#FFF',
-          fontSize: size * 0.36,
-          fontWeight: '700',
-          letterSpacing: 0.5,
-        }}
-      >
-        {initiales}
-      </Text>
-    </View>
-  );
+  const showImage = uri && !imgError;
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        {
-          transform: [{ scale: pressed ? 0.96 : 1 }],
-        },
-      ]}
+      style={({ pressed }) => ({
+        transform: [{ scale: pressed ? 0.96 : 1 }],
+      })}
     >
       <View style={[wrapperStyle, style]}>
         <View
@@ -95,7 +105,26 @@ function AppAvatarComponent({ nom, prenom, photoPath, size = 44, style, imageSty
             backgroundColor: '#fff',
           }}
         >
-          {content}
+          {showImage ? (
+            <Image
+              source={{ uri }}
+              style={[imageBaseStyle, imageStyle]}
+              onError={() => setImgError(true)}   // 🔥 important
+            />
+          ) : (
+            <View style={fallbackStyle}>
+              <Text
+                style={{
+                  color: '#FFF',
+                  fontSize: size * 0.36,
+                  fontWeight: '700',
+                  letterSpacing: 0.5,
+                }}
+              >
+                {initiales}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
     </Pressable>

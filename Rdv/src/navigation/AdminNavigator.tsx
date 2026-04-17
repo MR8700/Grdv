@@ -1,11 +1,13 @@
 import React, { useCallback, useMemo } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../store/AuthContext';
+import { useNotifContext } from '../store/NotifContext';
 import { DrawerMenuItem } from '../components/layout/DrawerContent';
 import { ActorDrawerNavigator } from './ActorDrawerNavigator';
 import { RoleTabItem, RoleTabNavigator } from './RoleTabNavigator';
 
 import { DashboardScreen } from '../screens/admin/DashboardScreen';
+import { NotificationsScreen } from '../screens/shared/NotificationsScreen';
 import { UtilisateursScreen } from '../screens/admin/UtilisateursScreen';
 import { UtilisateurDetailScreen } from '../screens/admin/UtilisateurDetailScreen';
 import { PermissionsScreen } from '../screens/admin/PermissionsScreen';
@@ -20,6 +22,7 @@ import { SynchronisationScreen } from '../screens/shared/SynchronisationScreen';
 const Stack = createNativeStackNavigator();
 
 function AdminTabs() {
+  
   const items = useMemo<RoleTabItem[]>(() => [
     { key: 'Dashboard', title: 'Dashboard', icon: 'grid', component: DashboardScreen, visible: true },
     { key: 'Utilisateurs', title: 'Utilisateurs', icon: 'people', component: UtilisateursScreen, visible: true },
@@ -38,7 +41,7 @@ function AdminTabs() {
 
 function AdminDrawer() {
   const { hasPermission, permissions } = useAuth();
-
+  const { unreadCount } = useNotifContext();
   const canAccess = useCallback(
     (permission: string) => permissions.length === 0 || hasPermission(permission),
     [hasPermission, permissions]
@@ -54,6 +57,7 @@ function AdminDrawer() {
       { key: 'AuditLogs', label: 'Audit production', icon: 'document-text-outline', visible: canAccess('voir_audit_logs') },
       { key: 'SystemJobs', label: 'Jobs système', icon: 'construct-outline', visible: true },
       { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
+      { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
       { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
       { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
     ],

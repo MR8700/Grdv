@@ -15,7 +15,7 @@ router.get('/',          checkRole('medecin', 'secretaire', 'administrateur'), c
 router.get('/:id_user',  checkRole('medecin', 'secretaire', 'administrateur'), ctrl.getOne);
 
 // GET /api/v1/patients/:id_user/rendez-vous
-router.get('/:id_user/rendez-vous', isSelf('id_user'), ctrl.getRendezVous);
+router.get('/:id_user/rendez-vous', checkRole('patient', 'medecin', 'secretaire', 'administrateur'), ctrl.getRendezVous);
 
 // PUT /api/v1/patients/:id_user
 router.put('/:id_user',  isSelf('id_user'), auditAfter('patients'), ctrl.update);

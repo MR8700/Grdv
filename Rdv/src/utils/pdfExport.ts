@@ -1,5 +1,5 @@
 import { Share } from 'react-native';
-import RNHTMLtoPDF from 'react-native-html-to-pdf';
+import RNHTMLtoPDFModule from 'react-native-html-to-pdf';
 
 export interface PdfColumn<T> {
   key: string;
@@ -101,6 +101,12 @@ export async function exportToPdfAndShare<T>(options: PdfExportOptions<T>) {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
+
+  const RNHTMLtoPDF = (RNHTMLtoPDFModule as any)?.default ?? RNHTMLtoPDFModule;
+
+  if (typeof RNHTMLtoPDF?.convert !== 'function') {
+    throw new PdfExportError('Le module PDF n est pas disponible sur cet appareil.');
+  }
 
   let result;
   try {

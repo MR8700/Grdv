@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Alert, FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
@@ -30,6 +30,7 @@ export function ServicesScreen() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ServicePayload>({ nom_service: '', description: '' });
+  const listRef = useRef<FlatList<Service>>(null);
 
   const canWrite = hasPermission('gerer_services');
 
@@ -82,21 +83,31 @@ export function ServicesScreen() {
 
   const remove = async (serviceId: number) => {
     if (!canWrite) return;
-    setSaving(true);
-    try {
-      await servicesApi.remove(serviceId);
-      showAlert('success', 'Service supprimé');
-      if (editingId === serviceId) resetForm();
-      await fetchServices();
-    } catch {
-      showAlert('error', 'Suppression impossible');
-    } finally {
-      setSaving(false);
-    }
+
+    Alert.alert('Confirmer la suppression', 'Ce service sera retire de la liste active.', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          setSaving(true);
+          try {
+            await servicesApi.remove(serviceId);
+            showAlert('success', 'Service supprime');
+            if (editingId === serviceId) resetForm();
+            await fetchServices();
+          } catch {
+            showAlert('error', 'Suppression impossible');
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
   };
 
   const statusText = useMemo(
-    () => `${services.length} service(s) • ${loading ? 'actualisation...' : 'à jour'}`,
+    () => `${services.length} service(s) • ${loading ? 'actualisation...' : 'a jour'}`,
     [services.length, loading]
   );
 
@@ -121,6 +132,7 @@ export function ServicesScreen() {
       />
 
       <FlatList
+        ref={listRef}
         data={services}
         keyExtractor={(item) => String(item.id_service)}
         refreshing={loading}
@@ -191,6 +203,9 @@ export function ServicesScreen() {
                       nom_service: item.nom_service,
                       description: item.description || '',
                       id_clinique: item.id_clinique,
+                    });
+                    requestAnimationFrame(() => {
+                      listRef.current?.scrollToOffset({ offset: 0, animated: true });
                     });
                   }}
                   disabled={!canWrite}

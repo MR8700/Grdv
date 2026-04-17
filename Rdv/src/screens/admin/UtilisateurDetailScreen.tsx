@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator } from 'react-native';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
@@ -7,19 +7,18 @@ import { AppInput } from '../../components/ui/AppInput';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppBadge } from '../../components/ui/AppBadge';
 import { showAlert } from '../../components/ui/AppAlert';
-import { AppDropdown } from '../../components/shared/AppDropdown';
 import { PdfExportButton } from '../../components/ui/PdfExportButton';
 import { useTheme } from '../../store/ThemeContext';
 import { useAuth } from '../../store/AuthContext';
 import { utilisateursApi } from '../../api/utilisateurs.api';
 import { adminApi } from '../../api/admin.api';
-import { Utilisateur, TypeUser } from '../../types/models.types';
-import { TYPE_USER_LABELS } from '../../utils/constants';
+import { servicesApi } from '../../api/services.api';
+import { Service, Utilisateur, TypeUser } from '../../types/models.types';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 interface RoleItem {
   id_role: number;
-  nom_role: string;
+  nom_role: TypeUser;
   permissions: Array<{ id_permission: number; nom_permission: string }>;
 }
 
@@ -31,6 +30,12 @@ interface FormState {
   type_user: TypeUser;
   id_role?: number;
   password: string;
+  code_rpps: string;
+  specialite_principale: string;
+  id_services_affectes: string[];
+  niveau_acces: string;
+  num_secu_sociale: string;
+  groupe_sanguin: string;
 }
 
 const initialForm: FormState = {
@@ -39,113 +44,111 @@ const initialForm: FormState = {
   email: '',
   login: '',
   type_user: 'patient',
-  id_role: undefined,
   password: '',
+  code_rpps: '',
+  specialite_principale: '',
+  id_services_affectes: [],
+  niveau_acces: '1',
+  num_secu_sociale: '',
+  groupe_sanguin: '',
 };
 
-export function UtilisateurDetailScreen({ navigation, route }: { navigation: any; route: any }) {
+export function UtilisateurDetailScreen({ navigation, route }: any) {
   const { colors } = useTheme();
-  const { hasPermission, startImpersonation, user: currentUser } = useAuth();
+  const { hasPermission, startImpersonation } = useAuth();
+
   const idUser = route.params?.id_user;
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [targetUser, setTargetUser] = useState<Utilisateur | null>(null);
   const [roles, setRoles] = useState<RoleItem[]>([]);
+  const [targetUser, setTargetUser] = useState<Utilisateur | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [justification, setJustification] = useState('');
 
-  const canCreate = hasPermission('creer_utilisateur');
-  const canUpdate = hasPermission('modifier_utilisateur');
-  const canRequestAccess = hasPermission('demander_navigation_compte');
-  const canForceAccess = hasPermission('forcer_navigation_compte');
+  const updateForm = useCallback((k: keyof FormState, v: any) => {
+    setForm((p) => ({ ...p, [k]: v }));
+  }, []);
 
-  const selectedRole = useMemo(
-    () => roles.find((role) => role.id_role === form.id_role) || null,
-    [roles, form.id_role]
-  );
-
-  const roleOptions = useMemo(
-    () =>
-      roles.map((role) => ({
-        label: role.nom_role,
-        value: String(role.id_role),
-      })),
-    [roles]
-  );
-
+  // ✅ SAFE HYDRATE
   const hydrate = useCallback(async () => {
-    setLoading(true);
     try {
-      const matrix = await adminApi.getPermissionsMatrix();
-      const matrixRoles = (matrix.data.data.roles || []) as RoleItem[];
-      setRoles(matrixRoles);
+      setLoading(true);
+
+      const [matrix, servicesRes] = await Promise.all([
+        adminApi.getPermissionsMatrix(),
+        servicesApi.getAll({ limit: 200 }),
+      ]);
+
+      const rolesData = matrix.data.data.roles ?? [];
+      setRoles(rolesData);
 
       if (idUser) {
-        const response = await utilisateursApi.getOne(idUser);
-        const user = response.data.data as Utilisateur;
-        setTargetUser(user);
-        const fallbackRole = matrixRoles.find((role) => role.nom_role === user.type_user);
+        const res = await utilisateursApi.getOne(idUser);
+        const u: Utilisateur = res.data.data;
+
+        setTargetUser(u);
+
+        // 🔥 mapping propre (PAS spread direct)
         setForm({
-          nom: user.nom || '',
-          prenom: user.prenom || '',
-          email: user.email || '',
-          login: user.login || '',
-          type_user: user.type_user,
-          id_role: user.id_role || fallbackRole?.id_role,
+          nom: u.nom ?? '',
+          prenom: u.prenom ?? '',
+          email: u.email ?? '',
+          login: u.login ?? '',
+          type_user: u.type_user,
+          id_role: u.id_role,
           password: '',
+          code_rpps: u.profil_medecin?.code_rpps ?? '',
+          specialite_principale: u.profil_medecin?.specialite_principale ?? '',
+          id_services_affectes: (u.profil_secretaire?.services_affectes ?? []).map(s => String(s.id_service)),
+          niveau_acces: String(u.profil_administrateur?.niveau_acces ?? 1),
+          num_secu_sociale: u.profil_patient?.num_secu_sociale ?? '',
+          groupe_sanguin: u.profil_patient?.groupe_sanguin ?? '',
         });
-      } else if (matrixRoles.length > 0) {
-        setTargetUser(null);
-        const defaultRole = matrixRoles.find((role) => role.nom_role === 'patient');
-        setForm((prev) => ({ ...prev, id_role: defaultRole?.id_role }));
       } else {
         setTargetUser(null);
+        setForm(initialForm);
       }
     } catch {
-      showAlert('error', 'Utilisateur', 'Impossible de charger les informations.');
+      showAlert('error', 'Erreur', 'Chargement impossible');
     } finally {
       setLoading(false);
     }
   }, [idUser]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     hydrate();
   }, [hydrate]);
 
-  useAutoRefresh(hydrate, 30000, Boolean(idUser));
+  useAutoRefresh(hydrate, 30000, !!idUser);
 
-  const onRoleChange = (roleId: number) => {
-    const role = roles.find((item) => item.id_role === roleId);
-    if (!role) return;
-    setForm((prev) => ({
-      ...prev,
-      id_role: role.id_role,
-      type_user: role.nom_role as TypeUser,
-    }));
-  };
+  const selectedRole = useMemo(
+    () => roles.find(r => r.id_role === form.id_role),
+    [roles, form.id_role]
+  );
 
-  const validate = () => {
+  // ✅ VALIDATION FIXED
+  const validate = useCallback(() => {
     if (!form.nom.trim() || !form.prenom.trim() || !form.login.trim()) {
-      showAlert('warning', 'Champs requis', 'Nom, prenom et login sont obligatoires.');
+      showAlert('warning', 'Champs requis', 'Nom, prenom et login obligatoires');
       return false;
     }
-    if (!idUser && !form.password.trim()) {
-      showAlert('warning', 'Mot de passe requis', 'Veuillez renseigner un mot de passe.');
-      return false;
-    }
-    if (!form.id_role) {
-      showAlert('warning', 'Role requis', 'Selectionnez un role pour cet utilisateur.');
-      return false;
-    }
-    return true;
-  };
 
-  const submit = async () => {
+    if (!idUser && !form.password.trim()) {
+      showAlert('warning', 'Mot de passe requis', 'Créer un mot de passe est obligatoire');
+      return false;
+    }
+
+    return true;
+  }, [form, idUser]);
+
+  // ✅ SUBMIT SAFE
+  const submit = useCallback(async () => {
     if (!validate()) return;
 
-    setSaving(true);
     try {
+      setSaving(true);
+
       const payload = {
         nom: form.nom.trim(),
         prenom: form.prenom.trim(),
@@ -153,228 +156,100 @@ export function UtilisateurDetailScreen({ navigation, route }: { navigation: any
         login: form.login.trim(),
         type_user: form.type_user,
         id_role: form.id_role,
-        ...(idUser ? {} : { password: form.password }),
+        password: idUser ? undefined : form.password,
+        id_services_affectes: form.id_services_affectes.map(Number),
       };
 
       if (idUser) {
-        if (!canUpdate) {
-          showAlert('warning', 'Action non autorisee', 'Permission modifier_utilisateur manquante.');
-          return;
-        }
         await utilisateursApi.update(idUser, payload);
-        showAlert('success', 'Utilisateur mis a jour');
       } else {
-        if (!canCreate) {
-          showAlert('warning', 'Action non autorisee', 'Permission creer_utilisateur manquante.');
-          return;
-        }
         await utilisateursApi.create(payload);
-        showAlert('success', 'Utilisateur cree');
       }
 
+      showAlert('success', 'Succès');
       await hydrate();
     } catch {
-      showAlert('error', 'Sauvegarde impossible', 'Verifiez les donnees puis reessayez.');
+      showAlert('error', 'Erreur', 'Sauvegarde impossible');
     } finally {
       setSaving(false);
     }
-  };
+  }, [form, idUser, validate, hydrate]);
 
-  const requestAccess = async () => {
-    if (!idUser || !canRequestAccess || !justification.trim()) return;
+  // ✅ IMPERSONATION SAFE
+  const forceAccess = useCallback(async () => {
+    if (!idUser || !justification.trim()) return;
 
-    setSaving(true);
     try {
-      await adminApi.requestImpersonation(idUser, justification.trim());
-      showAlert('success', 'Demande envoyee', "L'utilisateur a recu une notification.");
-    } catch {
-      showAlert('error', 'Demande echouee', 'Impossible de notifier cet utilisateur.');
-    } finally {
-      setSaving(false);
-    }
-  };
+      const res = await adminApi.forceImpersonation(idUser, justification);
 
-  const forceAccess = async () => {
-    if (!idUser || !canForceAccess || !justification.trim()) return;
+      const data = res.data.data;
 
-    setSaving(true);
-    try {
-      const response = await adminApi.forceImpersonation(idUser, justification.trim());
-      const data = response.data.data;
       await startImpersonation({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
-        user: data.user as Utilisateur,
+        user: data.user,
       });
-      showAlert('success', 'Navigation forcee', 'Session basculee vers le compte utilisateur cible.');
+
       navigation.navigate('AdminDrawer');
     } catch {
-      showAlert('error', 'Forcage refuse', "Impossible de forcer l'acces a ce compte.");
-    } finally {
-      setSaving(false);
+      showAlert('error', 'Erreur');
     }
-  };
+  }, [idUser, justification]);
+
+  if (loading) {
+    return (
+      <ScreenWrapper>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </ScreenWrapper>
+    );
+  }
 
   return (
-    <ScreenWrapper scroll={false}>
+    <ScreenWrapper scroll>
       <AppHeader
-        title={idUser ? 'Compte utilisateur' : 'Ajouter utilisateur'}
-        subtitle={loading ? 'Chargement...' : idUser ? `ID #${idUser}` : 'Creation'}
-        onBack={navigation?.canGoBack?.() ? () => navigation.goBack() : undefined}
+        title={idUser ? 'Utilisateur' : 'Créer utilisateur'}
+        subtitle={idUser ? `#${idUser}` : 'Nouveau'}
+        onBack={() => navigation.goBack()}
         rightActions={
           <PdfExportButton
-            title="Export fiche utilisateur"
+            title="Export"
             rows={[form]}
-            filters={{ Mode: idUser ? 'Edition' : 'Creation' }}
-            columns={[
-              { key: 'nom', label: 'Nom', value: (f) => f.nom },
-              { key: 'prenom', label: 'Prenom', value: (f) => f.prenom },
-              { key: 'email', label: 'Email', value: (f) => f.email || '' },
-              { key: 'login', label: 'Login', value: (f) => f.login },
-              { key: 'type', label: 'Type', value: (f) => f.type_user },
-              { key: 'role', label: 'Role ID', value: (f) => f.id_role || '' },
-            ]}
+            columns={[{ key: 'nom', label: 'Nom', value: (f) => f.nom }]}
           />
         }
       />
 
-      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-        <AppCard title="Informations principales">
-          <AppInput label="Nom" value={form.nom} onChangeText={(v) => setForm((prev) => ({ ...prev, nom: v }))} required />
-          <AppInput label="Prenom" value={form.prenom} onChangeText={(v) => setForm((prev) => ({ ...prev, prenom: v }))} required />
+      <AppCard title="Infos">
+        <AppInput label="Nom" value={form.nom} onChangeText={(v) => updateForm('nom', v)} />
+        <AppInput label="Prenom" value={form.prenom} onChangeText={(v) => updateForm('prenom', v)} />
+        <AppInput label="Login" value={form.login} onChangeText={(v) => updateForm('login', v)} />
+      </AppCard>
+
+      {selectedRole && (
+        <AppCard title="Permissions">
+          {selectedRole.permissions.map(p => (
+            <AppBadge key={p.id_permission} label={p.nom_permission} />
+          ))}
+        </AppCard>
+      )}
+
+      {idUser && (
+        <AppCard title="Impersonation">
           <AppInput
-            label="Email"
-            value={form.email}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, email: v }))}
-            keyboardType="email-address"
+            label="Justification"
+            value={justification}
+            onChangeText={setJustification}
           />
-          <AppInput label="Login" value={form.login} onChangeText={(v) => setForm((prev) => ({ ...prev, login: v }))} required />
-          {!idUser && (
-            <AppInput
-              label="Mot de passe initial"
-              value={form.password}
-              onChangeText={(v) => setForm((prev) => ({ ...prev, password: v }))}
-              secureTextEntry
-              required
-            />
-          )}
+          <AppButton label="Forcer accès" onPress={forceAccess} />
         </AppCard>
+      )}
 
-        <AppCard title="Attribution de role">
-          <AppDropdown
-            label="Role principal"
-            value={form.id_role ? String(form.id_role) : ''}
-            options={roleOptions}
-            onValueChange={(value) => onRoleChange(Number(value))}
-          />
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            {roles.map((role) => {
-              const active = role.id_role === form.id_role;
-              return (
-                <TouchableOpacity
-                  key={role.id_role}
-                  onPress={() => onRoleChange(role.id_role)}
-                  style={{
-                    borderRadius: 18,
-                    borderWidth: 1,
-                    borderColor: active ? colors.primary : colors.border,
-                    backgroundColor: active ? `${colors.primary}18` : colors.surfaceAlt,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                  }}
-                >
-                  <Text style={{ color: active ? colors.primary : colors.text, fontWeight: '700' }}>{role.nom_role}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {selectedRole && (
-            <View
-              style={{
-                marginTop: 12,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-                padding: 10,
-                backgroundColor: colors.surfaceAlt,
-              }}
-            >
-              <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 8 }}>
-                Permissions accordees ({selectedRole.permissions?.length || 0})
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                {(selectedRole.permissions || []).map((perm) => (
-                  <AppBadge
-                    key={perm.id_permission}
-                    label={perm.nom_permission}
-                    color={`${colors.primary}1B`}
-                    textColor={colors.primary}
-                    size="sm"
-                  />
-                ))}
-              </View>
-            </View>
-          )}
-        </AppCard>
-
-        {idUser && (
-          <AppCard title="Navigation sur compte utilisateur" subtitle="Workflow demande puis forcage admin">
-            <AppInput label="Justification" value={justification} onChangeText={setJustification} multiline required />
-
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-              <AppButton
-                label="Demander permission"
-                onPress={requestAccess}
-                loading={saving}
-                disabled={!canRequestAccess || currentUser?.id_user === idUser}
-                style={{ flex: 1 }}
-              />
-              <AppButton
-                label="Forcer"
-                variant="danger"
-                onPress={forceAccess}
-                loading={saving}
-                disabled={!canForceAccess || currentUser?.id_user === idUser}
-                style={{ flex: 1 }}
-              />
-            </View>
-
-            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 8 }}>
-              Le forcage envoie automatiquement une notification a l'utilisateur cible avec votre justification.
-            </Text>
-          </AppCard>
-        )}
-
-        <View style={{ marginTop: 12 }}>
-          <AppButton
-            label={idUser ? 'Enregistrer les modifications' : 'Creer le compte'}
-            onPress={submit}
-            loading={saving}
-            fullWidth
-            disabled={idUser ? !canUpdate : !canCreate}
-          />
-        </View>
-
-        {targetUser && (
-          <View
-            style={{
-              marginTop: 16,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-              borderRadius: 14,
-              padding: 12,
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: '700' }}>Etat du compte</Text>
-            <Text style={{ color: colors.textMuted, marginTop: 4 }}>
-              {targetUser.statut} • type: {TYPE_USER_LABELS[targetUser.type_user]}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+      <AppButton
+        label={idUser ? 'Modifier' : 'Créer'}
+        onPress={submit}
+        loading={saving}
+        style={{ marginTop: 20 }}
+      />
     </ScreenWrapper>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { isNetworkError } from '../../api/errors';
 import { utilisateursApi } from '../../api/utilisateurs.api';
@@ -24,31 +24,42 @@ export function ProfilScreen({ navigation }: { navigation?: any }) {
   const [nom, setNom] = useState(user?.nom ?? '');
   const [prenom, setPrenom] = useState(user?.prenom ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
+
   const [saving, setSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  const [ancienPassword, setAncienPassword] = useState('');
+  const [nouveauPassword, setNouveauPassword] = useState('');
+  const [confirmationPassword, setConfirmationPassword] = useState('');
+
   const [pendingPhotoUri, setPendingPhotoUri] = useState<string | null>(null);
   const [pendingSync, setPendingSync] = useState(false);
 
-  const entityKey = useMemo(() => (user ? `user-photo-${user.id_user}` : ''), [user]);
-  const photoUri = useMemo(
-    () => pendingPhotoUri ?? (user?.photo_path ? `${API_ORIGIN}/${user.photo_path}` : null),
-    [pendingPhotoUri, user?.photo_path]
-  );
+  const entityKey = user ? `user-photo-${user.id_user}` : '';
 
-  React.useEffect(() => {
+  // 🔥 IMPORTANT: on NE mémorise plus l'URL
+  const photoUri =
+    pendingPhotoUri ??
+    (user?.photo_path ? `${API_ORIGIN}/${user.photo_path}?t=${Date.now()}` : null);
+
+  useEffect(() => {
     if (!entityKey) return;
+
     let mounted = true;
 
     const refreshPendingState = async () => {
       const pending = await MediaOutbox.getLatestForEntity(entityKey);
       if (!mounted) return;
+
       setPendingPhotoUri(pending?.localFilePath ?? null);
       setPendingSync(Boolean(pending));
     };
 
     refreshPendingState();
-    const timer = setInterval(refreshPendingState, 4000);
+    const timer = setInterval(refreshPendingState, 3000);
 
     return () => {
       mounted = false;
@@ -61,39 +72,59 @@ export function ProfilScreen({ navigation }: { navigation?: any }) {
 
     try {
       setSaving(true);
-      setError(null);
-      setSuccess(null);
 
       const res = await utilisateursApi.update(user.id_user, { nom, prenom, email });
+
       const updated = res.data?.data ?? res.data;
-      updateUser(updated);
-      await Storage.setUser({ ...(user as any), ...updated });
-      setSuccess('Profil mis a jour.');
+
+      updateUser((prev: any) => ({
+        ...prev,
+        ...updated,
+      }));
+
+      await Storage.setUser({
+        ...(user as any),
+        ...updated,
+      });
+
+      setSuccess('Profil mis à jour.');
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Mise a jour impossible.');
+      setError(e?.response?.data?.message ?? 'Erreur mise à jour');
     } finally {
       setSaving(false);
     }
-  }, [email, nom, prenom, updateUser, user]);
+  }, [email, nom, prenom, user, updateUser]);
 
-  const uploadPhoto = useCallback(async (asset: { uri: string; name: string; type: string }) => {
+  const uploadPhoto = useCallback(async (asset: any) => {
     if (!user) return;
 
     const form = new FormData();
-    form.append('photo', { uri: asset.uri, name: asset.name, type: asset.type } as any);
-    const uploadId = MediaOutbox.buildUploadId();
+    form.append('photo', {
+      uri: asset.uri,
+      name: asset.name,
+      type: asset.type,
+    } as any);
 
     try {
-      const res = await utilisateursApi.updatePhoto(user.id_user, form, uploadId);
-      const photo_path = res.data?.data?.photo_path ?? res.data?.photo_path;
+      const res = await utilisateursApi.updatePhoto(user.id_user, form);
+
+      const photo_path = res.data?.data?.photo_path;
 
       if (photo_path) {
-        await MediaOutbox.clearEntity(entityKey);
         setPendingPhotoUri(null);
         setPendingSync(false);
-        updateUser({ photo_path });
-        await Storage.setUser({ ...(user as any), photo_path });
-        setSuccess('Photo mise a jour.');
+
+        updateUser((prev: any) => ({
+          ...prev,
+          photo_path,
+        }));
+
+        await Storage.setUser({
+          ...(user as any),
+          photo_path,
+        });
+
+        setSuccess('Photo mise à jour.');
       }
     } catch (e) {
       if (!isNetworkError(e)) throw e;
@@ -110,104 +141,85 @@ export function ProfilScreen({ navigation }: { navigation?: any }) {
 
       setPendingPhotoUri(queued.localFilePath);
       setPendingSync(true);
-      setSuccess('Photo enregistree localement. Elle sera envoyee des que le reseau revient.');
+      setSuccess('Photo enregistrée localement.');
     }
-  }, [entityKey, updateUser, user]);
+  }, [user, entityKey, updateUser]);
 
-  if (!user) {
-    return (
-      <ScreenWrapper scroll style={{ backgroundColor: colors.background }}>
-        <AppHeader title="Profil" onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined} />
-        <AppCard>
-          <Text style={{ color: colors.textMuted }}>Aucune session active.</Text>
-          <View style={{ marginTop: 12 }}>
-            <AppButton label="Retour" variant="outline" onPress={() => navigation?.goBack?.()} />
-          </View>
-        </AppCard>
-      </ScreenWrapper>
-    );
-  }
+  const changePassword = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setPasswordSaving(true);
+
+      await utilisateursApi.changePassword(user.id_user, {
+        ancien_password: ancienPassword,
+        nouveau_password: nouveauPassword,
+        confirmation: confirmationPassword,
+      });
+
+      setAncienPassword('');
+      setNouveauPassword('');
+      setConfirmationPassword('');
+
+      setSuccess('Mot de passe mis à jour.');
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? 'Erreur mot de passe');
+    } finally {
+      setPasswordSaving(false);
+    }
+  }, [ancienPassword, nouveauPassword, confirmationPassword, user]);
+
+  if (!user) return null;
 
   return (
     <ScreenWrapper scroll style={{ backgroundColor: colors.background }}>
-      <AppHeader
-        title="Mon profil"
-        subtitle={`Connecté en tant que ${user.type_user}`}
-        onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={
-          <PdfExportButton
-            title="Export profil"
-            rows={[{ nom, prenom, email, login: user.login, type_user: user.type_user, id_user: user.id_user }]}
-            columns={[
-              { key: 'id', label: 'ID', value: (r) => r.id_user },
-              { key: 'nom', label: 'Nom', value: (r) => r.nom },
-              { key: 'prenom', label: 'Prenom', value: (r) => r.prenom },
-              { key: 'email', label: 'Email', value: (r) => r.email ?? '' },
-              { key: 'login', label: 'Login', value: (r) => r.login },
-              { key: 'type', label: 'Type', value: (r) => r.type_user },
-            ]}
-          />
-        }
-      />
+      <AppHeader title="Mon profil" />
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.avatarContainer}>
-          <AppAvatar nom={user.nom} prenom={user.prenom} photoPath={photoUri} size={100} />
-          <Text style={[styles.identityTitle, { color: colors.text }]}>{`${prenom} ${nom}`.trim() || user.login}</Text>
-          <Text style={[styles.identitySubtitle, { color: colors.textMuted }]}>
-            {email || 'Adresse e-mail non renseignee'}
+          {/* 🔥 KEY FORCE RELOAD IMAGE */}
+          <AppAvatar
+            key={photoUri || 'no-photo'}
+            nom={user.nom}
+            prenom={user.prenom}
+            photoPath={photoUri}
+            size={100}
+          />
+
+          <Text style={[styles.identityTitle, { color: colors.text }]}>
+            {`${prenom} ${nom}`.trim() || user.login}
           </Text>
         </View>
 
-        {error && <Text style={[styles.message, { color: colors.danger }]}>{error}</Text>}
-        {success && <Text style={[styles.message, { color: colors.success }]}>{success}</Text>}
-
-        <AppCard title="Resume du compte">
-          <View style={styles.summaryGrid}>
-            <View style={[styles.summaryChip, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-              <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Identifiant</Text>
-              <Text style={[styles.summaryValue, { color: colors.text }]}>{user.login}</Text>
-            </View>
-            <View style={[styles.summaryChip, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-              <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>Role</Text>
-              <Text style={[styles.summaryValue, { color: colors.text }]}>{user.type_user}</Text>
-            </View>
-          </View>
-        </AppCard>
-
         <AppCard title="Informations">
-          <AppInput label="Prenom" value={prenom} onChangeText={setPrenom} required />
-          <AppInput label="Nom" value={nom} onChangeText={setNom} required />
-          <AppInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+          <AppInput label="Prenom" value={prenom} onChangeText={setPrenom} />
+          <AppInput label="Nom" value={nom} onChangeText={setNom} />
+          <AppInput label="Email" value={email} onChangeText={setEmail} />
 
-          <View style={{ marginTop: 16 }}>
-            <AppButton
-              label={saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
-              fullWidth
-              loading={saving}
-              onPress={save}
-            />
-          </View>
+          <AppButton label="Enregistrer" loading={saving} onPress={save} />
         </AppCard>
 
         <ImageUploadField
-          title="Photo"
-          subtitle="Sélection via la galérie du téléphone"
+          title="Photo de profil"
           imageUri={photoUri}
           pendingSync={pendingSync}
           onUpload={uploadPhoto}
-          placeholderEmoji="P"
         />
 
-        <AppCard title="Préférences">
-          <AppSwitch value={isDark} onToggle={toggleTheme} label="Mode sombre" />
-          <View style={{ marginTop: 12 }}>
-            <AppButton label="Voir synchronisation" variant="outline" onPress={() => navigation?.navigate?.('Synchronisation')} />
-          </View>
+        <AppCard title="Securité">
+          <AppInput label="Ancien mot de passe" value={ancienPassword} onChangeText={setAncienPassword} secureTextEntry />
+          <AppInput label="Nouveau mot de passe" value={nouveauPassword} onChangeText={setNouveauPassword} secureTextEntry />
+          <AppInput label="Confirmation" value={confirmationPassword} onChangeText={setConfirmationPassword} secureTextEntry />
+
+          <AppButton label="Modifier mot de passe" loading={passwordSaving} onPress={changePassword} />
         </AppCard>
 
         <AppCard>
-          <AppButton label="Se déconnecter" variant="danger" fullWidth onPress={logout} />
+          <AppSwitch value={isDark} onToggle={toggleTheme} label="Mode sombre" />
+        </AppCard>
+
+        <AppCard>
+          <AppButton label="Déconnexion" variant="danger" onPress={logout} />
         </AppCard>
       </ScrollView>
     </ScreenWrapper>
@@ -215,13 +227,7 @@ export function ProfilScreen({ navigation }: { navigation?: any }) {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { padding: 16, paddingBottom: 40 },
-  message: { marginBottom: 12, fontWeight: '600' },
-  avatarContainer: { alignItems: 'center', marginBottom: 24, gap: 6 },
-  identityTitle: { fontSize: 22, fontWeight: '800', marginTop: 10 },
-  identitySubtitle: { fontSize: 13, textAlign: 'center' },
-  summaryGrid: { flexDirection: 'row', gap: 12 },
-  summaryChip: { flex: 1, borderWidth: 1, borderRadius: 16, padding: 14 },
-  summaryLabel: { fontSize: 12, marginBottom: 6, fontWeight: '700' },
-  summaryValue: { fontSize: 15, fontWeight: '800' },
+  scrollContainer: { padding: 16 },
+  avatarContainer: { alignItems: 'center', marginBottom: 20 },
+  identityTitle: { fontSize: 20, fontWeight: '700' },
 });

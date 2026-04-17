@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { FlatList, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { FlatList, Text, TouchableOpacity, View } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { utilisateursApi } from '../../api/utilisateurs.api';
 import { UtilisateurItem } from '../../components/admin/UtilisateurItem';
@@ -27,9 +27,24 @@ const FILTERS = [
 export function UtilisateursScreen({ navigation }: { navigation: any }) {
   const { hasPermission } = useAuth();
   const { colors } = useTheme();
-  const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<string | undefined>(undefined);
 
+  const canView = hasPermission('voir_utilisateurs');
+  const canCreate = hasPermission('creer_utilisateur');
+
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterType, setFilterType] = useState<string | undefined>();
+
+  // 🔎 Debounce recherche
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // 🔁 Fetch users
   const loadUsers = useCallback(
     async (p: Record<string, any>) => {
       const response = await utilisateursApi.getAll({
@@ -41,32 +56,59 @@ export function UtilisateursScreen({ navigation }: { navigation: any }) {
     [filterType]
   );
 
-  const { items, loading, refresh, loadMore, hasMore } = usePaginatedApi<Utilisateur>({ fetcher: loadUsers });
+  const { items, loading, refresh, loadMore, hasMore } =
+    usePaginatedApi<Utilisateur>({ fetcher: loadUsers });
 
-  useAutoRefresh(refresh, REFRESH_INTERVALS.DASHBOARD, hasPermission('voir_utilisateurs'));
+  useAutoRefresh(refresh, REFRESH_INTERVALS.DASHBOARD, canView);
 
+  // 🔍 Filtrage optimisé
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
     if (!query) return items;
 
-    return items.filter((u) => `${u.nom} ${u.prenom} ${u.login}`.toLowerCase().includes(query));
-  }, [items, search]);
+    return items.filter((u) =>
+      `${u.nom} ${u.prenom} ${u.login}`
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [items, debouncedSearch]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     refresh();
   }, [filterType, refresh]);
 
+  const renderItem = useCallback(
+    ({ item }: { item: Utilisateur }) => (
+      <UtilisateurItem
+        utilisateur={item}
+        onPress={(id) =>
+          navigation.navigate('UtilisateurDetail', { id_user: id })
+        }
+      />
+    ),
+    [navigation]
+  );
+
+  if (!canView) {
+    return (
+      <ScreenWrapper>
+        <AppHeader title="Utilisateurs" subtitle="Accès refusé" />
+        <Text style={{ color: colors.textMuted }}>Accès refusé</Text>
+      </ScreenWrapper>
+    );
+  }
+
   return (
-    <ScreenWrapper scroll={false}>
+    <ScreenWrapper>
       <AppHeader
         title="Utilisateurs"
-        subtitle={`${items.length} compte(s)`}
+        subtitle={`${filtered.length} compte(s)`}
         rightActions={
           <PdfExportButton
             title="Export utilisateurs"
             rows={filtered}
             filters={{
-              Recherche: search || 'Aucune',
+              Recherche: debouncedSearch || 'Aucune',
               Type: filterType || 'Tous',
             }}
             columns={[
@@ -82,43 +124,32 @@ export function UtilisateursScreen({ navigation }: { navigation: any }) {
         }
       />
 
-      <View style={{ marginTop: 10 }}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            gap: 10,
-          }}
-        >
-          {FILTERS.map((f) => {
-            const active = f.value === filterType;
+      {/* 🎯 Filtres */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 10 }}>
+        {FILTERS.map((f) => {
+          const active = f.value === filterType;
 
-            return (
-              <TouchableOpacity
-                key={f.label}
-                onPress={() => setFilterType(f.value)}
-                style={{
-                  paddingVertical: 8,
-                  paddingHorizontal: 14,
-                  borderRadius: 20,
-                  backgroundColor: active ? colors.primary : '#ffffff22',
-                }}
-              >
-                <Text
-                  style={{
-                    color: active ? '#fff' : '#ddd',
-                    fontWeight: '600',
-                  }}
-                >
-                  {f.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+          return (
+            <TouchableOpacity
+              key={f.label}
+              onPress={() => setFilterType(f.value)}
+              style={{
+                marginRight: 8,
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                borderRadius: 20,
+                backgroundColor: active ? colors.primary : '#ffffff22',
+              }}
+            >
+              <Text style={{ color: active ? '#fff' : '#ddd' }}>
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
+      {/* 🔎 Recherche */}
       <View style={{ paddingHorizontal: 16, marginTop: 10 }}>
         <AppInput
           label="Recherche"
@@ -126,71 +157,56 @@ export function UtilisateursScreen({ navigation }: { navigation: any }) {
           onChangeText={setSearch}
           placeholder="Nom, prenom ou login"
         />
-        <TouchableOpacity
-          onPress={refresh}
-          style={{
-            backgroundColor: colors.primary,
-            padding: 10,
-            borderRadius: 12,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Rafraichir</Text>
-        </TouchableOpacity>
       </View>
 
+      {/* 📋 Liste */}
       {loading && items.length === 0 ? (
-        <View style={{ paddingHorizontal: 16, gap: 12, marginTop: 12 }}>
+        <View style={{ paddingHorizontal: 16, marginTop: 12 }}>
           {[1, 2, 3].map((i) => (
             <CardSkeleton key={i} />
           ))}
         </View>
       ) : (
         <FlatList
-          style={{ flex: 1 }}
           data={filtered}
           keyExtractor={(u) => String(u.id_user)}
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingTop: 12,
-            paddingBottom: 32,
-            flexGrow: 1,
-          }}
+          renderItem={renderItem}
+          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          refreshing={loading}
+          onRefresh={refresh}
           onEndReached={hasMore ? loadMore : undefined}
           onEndReachedThreshold={0.3}
-          ListEmptyComponent={<AppEmpty title="Aucun utilisateur" subtitle="Ajoutez des comptes via le bouton +" />}
-          renderItem={({ item }) => (
-            <UtilisateurItem
-              utilisateur={item}
-              onPress={(id) => navigation.navigate('UtilisateurDetail', { id_user: id })}
+          removeClippedSubviews
+          windowSize={5}
+          ListEmptyComponent={
+            <AppEmpty
+              title="Aucun utilisateur"
+              subtitle="Aucun résultat trouvé"
             />
-          )}
+          }
         />
       )}
 
+      {/* ➕ FAB */}
       <TouchableOpacity
-        disabled={!hasPermission('creer_utilisateur')}
-        onPress={() => navigation.navigate('UtilisateurDetail', { id_user: undefined })}
-        activeOpacity={0.92}
+        disabled={!canCreate}
+        onPress={() =>
+          navigation.navigate('UtilisateurDetail', { id_user: undefined })
+        }
         style={{
           position: 'absolute',
-          right: 22,
-          bottom: 30,
-          width: 58,
-          height: 58,
-          borderRadius: 29,
+          right: 20,
+          bottom: 90,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
           backgroundColor: colors.primary,
-          alignItems: 'center',
           justifyContent: 'center',
-          shadowColor: '#000',
-          shadowOpacity: 0.2,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 8 },
-          elevation: 6,
-          opacity: hasPermission('creer_utilisateur') ? 1 : 0.45,
+          alignItems: 'center',
+          opacity: canCreate ? 1 : 0.4,
         }}
       >
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={26} color="#fff" />
       </TouchableOpacity>
     </ScreenWrapper>
   );

@@ -86,6 +86,7 @@ function AppHeaderComponent({
       styles.outer,
       {
         paddingTop: insets.top + 8,
+        paddingHorizontal: 0,
         backgroundColor: transparent ? 'transparent' : colors.headerBg,
       },
     ],
@@ -157,9 +158,9 @@ const styles = StyleSheet.create({
   },
   inner: {
     minHeight: 72,
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingHorizontal: 14,
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,14 +178,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     marginTop: 3,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   actions: {
     flexDirection: 'row',

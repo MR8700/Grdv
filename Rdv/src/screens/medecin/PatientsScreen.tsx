@@ -85,8 +85,14 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
   }, [fetchPatients]);
 
   const renderItem = useCallback(
-    ({ item }: { item: Patient }) => <PatientCard patient={item} subtitle={item.utilisateur?.email} />,
-    []
+    ({ item }: { item: Patient }) => (
+      <PatientCard
+        patient={item}
+        subtitle={item.utilisateur?.email}
+        onPress={() => navigation?.navigate?.('PatientDossier', { id_patient: item.id_user })}
+      />
+    ),
+    [navigation]
   );
 
   const listHeader = useMemo(

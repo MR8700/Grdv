@@ -43,7 +43,17 @@ async function getAll(req, res, next) {
 async function getOne(req, res, next) {
   try {
     const user = await Utilisateur.findByPk(req.params.id_user, {
-      include: [{ model: Role, as: 'role' }],
+      include: [
+        { model: Role, as: 'role' },
+        { model: Medecin, as: 'profil_medecin' },
+        { model: Patient, as: 'profil_patient' },
+        {
+          model: Secretaire,
+          as: 'profil_secretaire',
+          include: [{ model: Service, as: 'services_affectes', through: { attributes: [] } }],
+        },
+        { model: Administrateur, as: 'profil_administrateur' },
+      ],
     });
     if (!user) return notFound(res, 'Utilisateur');
     return ok(res, user);

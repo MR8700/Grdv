@@ -7,20 +7,17 @@ import { AppEmpty } from '../ui/AppEmpty';
 import { useTheme } from '../../store/ThemeContext';
 import Animated, { useSharedValue, useAnimatedStyle } from 'react-native-reanimated';
 
-interface NotificationsListProps {
+interface Props {
   notifications: AppNotification[];
-  onPressItem?: (notification: AppNotification) => void;
+  onPressItem?: (n: AppNotification) => void;
+  onMarkRead?: (id: number) => void;
+  onDelete?: (id: number) => void;
 }
 
-function NotificationItem({
-  notification,
-  onPressItem,
-}: {
-  notification: AppNotification;
-  onPressItem?: (notification: AppNotification) => void;
-}) {
+function NotificationItem({ notification, onPressItem, onMarkRead, onDelete }: any) {
   const { colors } = useTheme();
   const scale = useSharedValue(1);
+
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -28,90 +25,73 @@ function NotificationItem({
   return (
     <TouchableOpacity
       onPress={() => onPressItem?.(notification)}
-      activeOpacity={0.9}
-      onPressIn={() => {
-        scale.value = 0.97;
-      }}
-      onPressOut={() => {
-        scale.value = 1;
-      }}
+      onPressIn={() => (scale.value = 0.97)}
+      onPressOut={() => (scale.value = 1)}
     >
       <Animated.View style={animStyle}>
-        <AppCard
-          style={{
-            padding: 14,
-            borderRadius: 14,
-            shadowColor: '#000',
-            shadowOpacity: 0.05,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 3 },
-            elevation: 4,
-            backgroundColor: colors.surface,
-          }}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+        <AppCard>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  color: colors.text,
-                  fontSize: 14,
-                  fontWeight: '700',
-                  marginBottom: 4,
-                }}
-              >
-                {notification.type_notification.toUpperCase()}
+              <Text style={{ fontWeight: '700', color: colors.text }}>
+                {notification.type_notification}
               </Text>
-              <Text
-                style={{
-                  color: colors.textMuted,
-                  fontSize: 13,
-                  lineHeight: 20,
-                }}
-                numberOfLines={3}
-              >
+
+              <Text style={{ color: colors.textMuted, marginTop: 4 }}>
                 {notification.message}
               </Text>
+
+              <Text style={{ color: colors.textLight, marginTop: 8, fontSize: 12 }}>
+                {formatRelativeTime(notification.date_envoi)}
+              </Text>
             </View>
+
             {!notification.lu && (
               <View
                 style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: 6,
+                  width: 10,
+                  height: 10,
+                  borderRadius: 5,
                   backgroundColor: colors.primary,
-                  alignSelf: 'flex-start',
                 }}
               />
             )}
           </View>
-          <Text
-            style={{
-              color: colors.textLight,
-              fontSize: 12,
-              marginTop: 10,
-              textAlign: 'right',
-            }}
-          >
-            {formatRelativeTime(notification.date_envoi)}
-          </Text>
+
+          <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
+            {!notification.lu && (
+              <TouchableOpacity onPress={() => onMarkRead?.(notification.id_notif)}>
+                <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                  Marquer lu
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity onPress={() => onDelete?.(notification.id_notif)}>
+              <Text style={{ color: colors.danger, fontWeight: '700' }}>
+                Supprimer
+              </Text>
+            </TouchableOpacity>
+          </View>
         </AppCard>
       </Animated.View>
     </TouchableOpacity>
   );
 }
 
-export function NotificationsList({ notifications, onPressItem }: NotificationsListProps) {
-  if (notifications.length === 0) {
-    return <AppEmpty title="Aucune notification" subtitle="Les nouvelles alertes apparaitront ici." />;
+export function NotificationsList({ notifications, onPressItem, onMarkRead, onDelete }: Props) {
+  if (!notifications.length) {
+    return <AppEmpty title="Aucune notification" subtitle="Rien à afficher." />;
   }
- 
+
   return (
     <View style={{ gap: 12 }}>
-      {notifications.map((notification) => (
+      {notifications.map((n) => (
         <NotificationItem
-          key={notification.id_notif}
-          notification={notification}
+          key={n.id_notif}
+          notification={n}
           onPressItem={onPressItem}
+          onMarkRead={onMarkRead}
+          onDelete={onDelete}
         />
       ))}
     </View>
