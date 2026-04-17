@@ -4,6 +4,8 @@ import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../store/ThemeContext';
+import { useAuth } from '../../store/AuthContext';
+import { AppAvatar } from './AppAvatar';
 
 interface AppHeaderProps {
   title: string;
@@ -12,6 +14,7 @@ interface AppHeaderProps {
   onMenu?: () => void;
   rightActions?: React.ReactNode;
   transparent?: boolean;
+  showUserAvatar?: boolean;
 }
 
 function AppHeaderComponent({
@@ -21,8 +24,10 @@ function AppHeaderComponent({
   onMenu,
   rightActions,
   transparent = false,
+  showUserAvatar = true,
 }: AppHeaderProps) {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const scale = useRef(new Animated.Value(1)).current;
@@ -77,6 +82,15 @@ function AppHeaderComponent({
 
     if (navigation.canGoBack?.()) navigation.goBack();
   }, [drawerNavigation, navigation, onBack, onMenu]);
+
+  const handleProfilePress = React.useCallback(() => {
+    if (!user) return;
+    try {
+      navigation.navigate('Profil');
+    } catch (error) {
+      console.warn('Unable to open profile from header', error);
+    }
+  }, [navigation, user]);
 
   const titleColor = transparent ? '#FFFFFF' : colors.headerText;
   const subtitleColor = transparent ? 'rgba(255,255,255,0.82)' : colors.headerMuted;
@@ -145,7 +159,18 @@ function AppHeaderComponent({
           ) : null}
         </View>
 
-        {rightActions ? <View style={styles.actions}>{rightActions}</View> : null}
+        <View style={styles.actions}>
+          {rightActions}
+          {showUserAvatar && user ? (
+            <AppAvatar
+              nom={user.nom}
+              prenom={user.prenom}
+              photoPath={user.photo_path}
+              size={38}
+              onPress={handleProfilePress}
+            />
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -189,6 +214,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginLeft: 10,
   },

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image, ImageStyle, ViewStyle, Pressable } from 'react-native';
 import { useTheme } from '../../store/ThemeContext';
 import { formatInitiales } from '../../utils/formatters';
-import { API_ORIGIN } from '../../utils/constants';
+import { resolveAssetUri } from '../../utils/assets';
 
 interface AppAvatarProps {
   nom: string;
@@ -16,18 +16,6 @@ interface AppAvatarProps {
 
 const AVATAR_COLORS = ['#1D6FA4', '#0F6E56', '#854F0B', '#712B13', '#534AB7'];
 
-function resolveImageUri(photoPath?: string | null) {
-  if (!photoPath) return null;
-
-  // 🔥 CAS 1: déjà une URL complète
-  if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
-    return photoPath;
-  }
-
-  // 🔥 CAS 2: path relatif backend
-  return `${API_ORIGIN}/${photoPath}`;
-}
-
 function AppAvatarComponent({
   nom,
   prenom,
@@ -40,12 +28,12 @@ function AppAvatarComponent({
   const { colors } = useTheme();
   const [imgError, setImgError] = React.useState(false);
 
-  const initiales = React.useMemo(
-    () => formatInitiales(nom, prenom),
-    [nom, prenom]
-  );
+  React.useEffect(() => {
+    setImgError(false);
+  }, [photoPath]);
 
-  const uri = React.useMemo(() => resolveImageUri(photoPath), [photoPath]);
+  const initiales = React.useMemo(() => formatInitiales(nom, prenom), [nom, prenom]);
+  const uri = React.useMemo(() => resolveAssetUri(photoPath), [photoPath]);
 
   const bgColor = React.useMemo(() => {
     const seed = initiales.charCodeAt(0) || 0;
@@ -88,13 +76,14 @@ function AppAvatarComponent({
     [bgColor, size]
   );
 
-  const showImage = uri && !imgError;
+  const showImage = Boolean(uri) && !imgError;
 
   return (
     <Pressable
+      disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => ({
-        transform: [{ scale: pressed ? 0.96 : 1 }],
+        transform: [{ scale: pressed && onPress ? 0.96 : 1 }],
       })}
     >
       <View style={[wrapperStyle, style]}>
@@ -107,9 +96,9 @@ function AppAvatarComponent({
         >
           {showImage ? (
             <Image
-              source={{ uri }}
+              source={{ uri: uri as string }}
               style={[imageBaseStyle, imageStyle]}
-              onError={() => setImgError(true)}   // 🔥 important
+              onError={() => setImgError(true)}
             />
           ) : (
             <View style={fallbackStyle}>

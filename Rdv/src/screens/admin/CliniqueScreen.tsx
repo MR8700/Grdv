@@ -15,7 +15,7 @@ import { showAlert } from '../../components/ui/AppAlert';
 import { useAuth } from '../../store/AuthContext';
 import { useTheme } from '../../store/ThemeContext';
 import { Clinique, Service } from '../../types/models.types';
-import { API_ORIGIN } from '../../utils/constants';
+import { resolveAssetUri } from '../../utils/assets';
 import { MediaOutbox } from '../../utils/mediaOutbox';
 
 export function CliniqueScreen({ navigation }: { navigation: any }) {
@@ -79,7 +79,7 @@ export function CliniqueScreen({ navigation }: { navigation: any }) {
   }, []);
 
   const logoUri = useMemo(
-    () => pendingLogoUri ?? (clinique?.logo_path ? `${API_ORIGIN}/${clinique.logo_path}` : null),
+    () => pendingLogoUri ?? resolveAssetUri(clinique?.logo_path, clinique?.logo_path),
     [clinique?.logo_path, pendingLogoUri]
   );
 
@@ -300,7 +300,7 @@ export function CliniqueScreen({ navigation }: { navigation: any }) {
                     >
                       {service.image_path ? (
                         <Image
-                          source={{ uri: `${API_ORIGIN}/${service.image_path}` }}
+                          source={{ uri: resolveAssetUri(service.image_path, service.image_path) as string }}
                           style={{ width: '100%', height: 120, backgroundColor: colors.surfaceAlt }}
                           resizeMode="cover"
                         />

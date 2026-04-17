@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Text } from 'react-native';
+import { FlatList, Text, View } from 'react-native';
 import { patientsApi } from '../../api/patients.api';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { PatientCard } from '../../components/rdv/PatientCard';
@@ -10,6 +10,7 @@ import { Toast } from '../../components/ui/AppAlert';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppLoader } from '../../components/ui/AppLoader';
+import { AppModal } from '../../components/ui/AppModal';
 import { useAppSettings } from '../../store/AppSettingsContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
@@ -26,6 +27,7 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const pageRef = useRef(1);
 
   useEffect(() => {
@@ -62,19 +64,19 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
   const exportFiltered = useCallback(async () => {
     try {
       await exportToPdfAndShare({
-        title: 'Export patients medecin',
+        title: 'Export patients médecin',
         rows: filteredItems,
         filters: { Page: page, Recherche: search || 'Aucune' },
         columns: [
           { key: 'id', label: 'ID', value: (p) => p.id_user },
           { key: 'nom', label: 'Nom', value: (p) => p.utilisateur?.nom || '' },
-          { key: 'prenom', label: 'Prenom', value: (p) => p.utilisateur?.prenom || '' },
-          { key: 'email', label: 'Email', value: (p) => p.utilisateur?.email || '' },
+          { key: 'prenom', label: 'Prénom', value: (p) => p.utilisateur?.prenom || '' },
+          { key: 'email', label: 'E-mail', value: (p) => p.utilisateur?.email || '' },
           { key: 'dossier', label: 'Dossier', value: (p) => p.id_dossier_medical || '' },
           { key: 'groupe', label: 'Groupe sanguin', value: (p) => p.groupe_sanguin || '' },
         ],
       });
-      Toast.success('PDF pret', `${filteredItems.length} patient(s) exporte(s).`);
+      Toast.success('PDF prêt', `${filteredItems.length} patient(s) exporté(s).`);
     } catch (exportError) {
       Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
     }
@@ -89,10 +91,10 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
       <PatientCard
         patient={item}
         subtitle={item.utilisateur?.email}
-        onPress={() => navigation?.navigate?.('PatientDossier', { id_patient: item.id_user })}
+        onPress={() => setSelectedPatient(item)}
       />
     ),
-    [navigation]
+    []
   );
 
   const listHeader = useMemo(
@@ -107,7 +109,7 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
           }
         />
 
-        <AppInput label="Recherche patient" value={search} onChangeText={setSearch} placeholder="Nom, email ou dossier" />
+        <AppInput label="Recherche patient" value={search} onChangeText={setSearch} placeholder="Nom, e-mail ou dossier" />
 
         {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
       </>
@@ -148,6 +150,48 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
           windowSize={7}
         />
       )}
+
+      <AppModal
+        visible={Boolean(selectedPatient)}
+        onClose={() => setSelectedPatient(null)}
+        title={selectedPatient ? `${selectedPatient.utilisateur?.prenom || ''} ${selectedPatient.utilisateur?.nom || ''}`.trim() : 'Patient'}
+        actions={
+          selectedPatient ? (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <AppButton label="Fermer" variant="ghost" style={{ flex: 1 }} onPress={() => setSelectedPatient(null)} />
+              <AppButton
+                label="Ouvrir le dossier"
+                style={{ flex: 1 }}
+                onPress={() => {
+                  const id = selectedPatient.id_user;
+                  setSelectedPatient(null);
+                  navigation?.navigate?.('PatientDossier', { id_patient: id });
+                }}
+              />
+            </View>
+          ) : null
+        }
+      >
+        {selectedPatient ? (
+          <View style={{ gap: 12 }}>
+            <Text style={{ color: colors.textMuted }}>
+              Dossier médical: {selectedPatient.id_dossier_medical || 'Non renseigné'}
+            </Text>
+            <Text style={{ color: colors.text }}>
+              E-mail: {selectedPatient.utilisateur?.email || 'Non renseigné'}
+            </Text>
+            <Text style={{ color: colors.text }}>
+              Groupe sanguin: {selectedPatient.groupe_sanguin || 'Non renseigné'}
+            </Text>
+            <Text style={{ color: colors.text }}>
+              Numéro de sécurité sociale: {selectedPatient.num_secu_sociale || 'Non renseigné'}
+            </Text>
+            <Text style={{ color: colors.text }}>
+              Statut du compte: {selectedPatient.utilisateur?.statut || 'Inconnu'}
+            </Text>
+          </View>
+        ) : null}
+      </AppModal>
     </ScreenWrapper>
   );
 }

@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
     one: (id: number) => `${notificationsBase}/${id}`,
     markRead: (id: number) => `${notificationsBase}/${id}/lu`,
     markAllRead: `${notificationsBase}/lu-tout`,
+    delete: (id: number) => `${notificationsBase}/${id}`,
   },
   audit: {
     base: auditBase,

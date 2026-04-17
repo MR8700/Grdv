@@ -17,6 +17,7 @@ router.patch('/:id_notif/lu', validate(v.idParam, 'params'), ctrl.markAsRead);
 
 // PATCH /api/v1/notifications/lu-tout
 router.patch('/lu-tout', ctrl.markAllAsRead);
+router.delete('/:id_notif', validate(v.idParam, 'params'), ctrl.remove);
 
 // POST /api/v1/notifications  (admin/secrétaire uniquement)
 router.post('/', checkRole('administrateur', 'secretaire'), validate(v.create), ctrl.create);

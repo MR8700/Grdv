@@ -157,6 +157,9 @@ async function updateStatut(req, res, next) {
     });
     if (!rdv) return notFound(res, 'Rendez-vous');
     await assertSecretaryCanAccessRdv(req, rdv);
+    if (req.user.type_user === 'medecin' && rdv.id_medecin !== req.user.id_user) {
+      throw new AppError('Vous ne pouvez confirmer que vos propres rendez-vous.', 403, 'FORBIDDEN_OWN_RDV_ONLY');
+    }
 
     const { statut_rdv, motif_refus } = req.body;
     const ancienStatut = rdv.statut_rdv;

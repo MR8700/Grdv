@@ -26,15 +26,15 @@ function MedecinTabs() {
   const items = useMemo<RoleTabItem[]>(() => [
     { key: 'Agenda', title: 'Agenda', icon: 'calendar', component: AgendaScreen, visible: true },
     { key: 'Disponibilites', title: 'Créneaux', icon: 'time', component: DisponibilitesScreen, visible: canAccess('voir_disponibilites') },
-    { key: 'StatsMedecin', title: 'Stats', icon: 'bar-chart', component: StatsMedecinScreen, visible: true },
     { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
     { key: 'Patients', title: 'Patients', icon: 'people', component: PatientsScreen, visible: canAccess('voir_dossier_medical') },
+    { key: 'StatsMedecin', title: 'Stats', icon: 'bar-chart', component: StatsMedecinScreen, hidden: true },
     { key: 'PatientDossier', title: 'Dossier patient', icon: 'folder', component: PatientDossierScreen, hidden: true },
     { key: 'Delegations', title: 'Délégations', icon: 'shield', component: DelegationsScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, hidden: true },
     { key: 'Synchronisation', title: 'Synchro', icon: 'construct', component: SynchronisationScreen, hidden: true },
     { key: 'Parametres', title: 'Réglages', icon: 'construct', component: ParametresScreen, hidden: true },
-  ], [canAccess]);
+  ], [canAccess, unreadCount]);
 
   return <RoleTabNavigator items={items} />;
 }
@@ -57,7 +57,7 @@ export function MedecinNavigator() {
     { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
     { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
     { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
-  ], [canAccess]);
+  ], [canAccess, unreadCount]);
 
   return <ActorDrawerNavigator items={items} rootRouteName="MedecinTabs" rootComponent={MedecinTabs} />;
 }

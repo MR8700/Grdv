@@ -47,4 +47,16 @@ async function create(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getMine, markAsRead, markAllAsRead, create };
+async function remove(req, res, next) {
+  try {
+    const notif = await Notification.findByPk(req.params.id_notif);
+    if (!notif) return notFound(res, 'Notification');
+    if (notif.id_user !== req.user.id_user) {
+      throw new AppError('AccÃ¨s refusÃ©.', 403, 'FORBIDDEN');
+    }
+    await notif.destroy();
+    return ok(res, null, 'Notification archivÃ©e.');
+  } catch (err) { next(err); }
+}
+
+module.exports = { getMine, markAsRead, markAllAsRead, create, remove };

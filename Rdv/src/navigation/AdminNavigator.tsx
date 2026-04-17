@@ -22,19 +22,20 @@ import { SynchronisationScreen } from '../screens/shared/SynchronisationScreen';
 const Stack = createNativeStackNavigator();
 
 function AdminTabs() {
-  
+  const { unreadCount } = useNotifContext();
   const items = useMemo<RoleTabItem[]>(() => [
-    { key: 'Dashboard', title: 'Dashboard', icon: 'grid', component: DashboardScreen, visible: true },
+    { key: 'Dashboard', title: 'Tableau', icon: 'grid', component: DashboardScreen, visible: true },
     { key: 'Utilisateurs', title: 'Utilisateurs', icon: 'people', component: UtilisateursScreen, visible: true },
+    { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
     { key: 'Services', title: 'Services', icon: 'medkit', component: ServicesScreen, visible: true },
-    { key: 'SystemJobs', title: 'Jobs', icon: 'construct', component: SystemJobsScreen, visible: true },
+    { key: 'SystemJobs', title: 'Jobs', icon: 'construct', component: SystemJobsScreen, hidden: true },
     { key: 'Permissions', title: 'Permissions', icon: 'shield', component: PermissionsScreen, hidden: true },
     { key: 'Clinique', title: 'Clinique', icon: 'business', component: CliniqueScreen, hidden: true },
     { key: 'AuditLogs', title: 'Audit', icon: 'clipboard', component: AuditLogsScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, hidden: true },
     { key: 'Synchronisation', title: 'Synchro', icon: 'construct', component: SynchronisationScreen, hidden: true },
     { key: 'Parametres', title: 'Réglages', icon: 'construct', component: ParametresScreen, hidden: true },
-  ], []);
+  ], [unreadCount]);
 
   return <RoleTabNavigator items={items} />;
 }
@@ -56,12 +57,12 @@ function AdminDrawer() {
       { key: 'Clinique', label: 'Clinique', icon: 'business-outline', visible: canAccess('gerer_clinique') },
       { key: 'AuditLogs', label: 'Audit production', icon: 'document-text-outline', visible: canAccess('voir_audit_logs') },
       { key: 'SystemJobs', label: 'Jobs système', icon: 'construct-outline', visible: true },
+      { key: 'Notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadCount, visible: true },
       { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
-      { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
       { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
       { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
     ],
-    [canAccess]
+    [canAccess, unreadCount]
   );
 
   return <ActorDrawerNavigator items={items} rootRouteName="AdminTabs" rootComponent={AdminTabs} />;
