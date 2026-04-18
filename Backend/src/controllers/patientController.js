@@ -8,8 +8,12 @@ const { auditManual } = require('../middlewares/audit.middleware');
 
 async function getAll(req, res, next) {
   try {
-    if (req.user.type_user === 'secretaire' && !req.user.permissions?.includes('voir_utilisateurs')) {
-      throw new AppError('Permission manquante: voir_utilisateurs.', 403, 'FORBIDDEN_PERMISSION');
+    if (
+      req.user.type_user === 'secretaire' &&
+      !req.user.permissions?.includes('voir_utilisateurs') &&
+      !req.user.permissions?.includes('voir_dossier_medical')
+    ) {
+      throw new AppError('Permission manquante: voir_utilisateurs ou voir_dossier_medical.', 403, 'FORBIDDEN_PERMISSION');
     }
     const { page = 1, limit = 20, groupe_sanguin } = req.query;
     const where = {};
@@ -47,8 +51,12 @@ async function getAll(req, res, next) {
 
 async function getOne(req, res, next) {
   try {
-    if (req.user.type_user === 'secretaire' && !req.user.permissions?.includes('voir_utilisateurs')) {
-      throw new AppError('Permission manquante: voir_utilisateurs.', 403, 'FORBIDDEN_PERMISSION');
+    if (
+      req.user.type_user === 'secretaire' &&
+      !req.user.permissions?.includes('voir_utilisateurs') &&
+      !req.user.permissions?.includes('voir_dossier_medical')
+    ) {
+      throw new AppError('Permission manquante: voir_utilisateurs ou voir_dossier_medical.', 403, 'FORBIDDEN_PERMISSION');
     }
     const patient = await Patient.findByPk(req.params.id_user, {
       include: [{ model: Utilisateur, as: 'utilisateur',

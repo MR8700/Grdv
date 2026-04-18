@@ -4,6 +4,7 @@ import { rdvApi } from '../../api/rendezVous.api';
 import { AppDropdown } from '../../components/shared/AppDropdown';
 import { AppPagination } from '../../components/shared/AppPagination';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { PatientDetailsModal } from '../../components/rdv/PatientDetailsModal';
 import { RdvCard } from '../../components/rdv/RdvCard';
 import { AppButton } from '../../components/ui/AppButton';
 import { AppEmpty } from '../../components/ui/AppEmpty';
@@ -15,7 +16,7 @@ import { Toast } from '../../components/ui/AppAlert';
 import { useAppSettings } from '../../store/AppSettingsContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
-import { RendezVous } from '../../types/models.types';
+import { Patient, RendezVous } from '../../types/models.types';
 import { formatDate, formatTime } from '../../utils/formatters';
 import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfExport';
 
@@ -41,6 +42,7 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const pageRef = useRef(1);
 
   useEffect(() => {
@@ -135,7 +137,7 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
     }
   }, [page, search, selectedRows, statusFilter]);
 
-  const updateStatus = useCallback(async (id: number, statut_rdv: 'confirme' | 'refuse') => {
+  const updateStatus = useCallback(async (id: number, statut_rdv: 'confirme' | 'refuse' | 'archive') => {
     const target = items.find((rdv) => rdv.id_rdv === id);
 
     try {
@@ -146,7 +148,14 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
         motif_refus: statut_rdv === 'refuse' ? 'Refus saisi depuis l ecran secretaire.' : undefined,
       });
 
-      Toast.success('Statut mis a jour', statut_rdv === 'confirme' ? 'Rendez-vous confirme.' : 'Rendez-vous refuse.');
+      Toast.success(
+        'Statut mis a jour',
+        statut_rdv === 'confirme'
+          ? 'Rendez-vous confirme.'
+          : statut_rdv === 'refuse'
+            ? 'Rendez-vous refuse.'
+            : 'Rendez-vous archive.'
+      );
       await fetchRendezVous(pageRef.current);
     } catch (err: any) {
       const message =
@@ -171,16 +180,24 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
           rdv={item}
           index={index}
           actions={
-            <TouchableOpacity onPress={() => toggleSelection(item.id_rdv)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <AppIcon
-                name={selectedIds.includes(item.id_rdv) ? 'checkbox' : 'square-outline'}
-                size={20}
-                color={selectedIds.includes(item.id_rdv) ? colors.primary : colors.textMuted}
-              />
-              <Text style={{ color: colors.text, fontWeight: '600' }}>
-                {selectedIds.includes(item.id_rdv) ? 'Selectionne pour export' : 'Ajouter a la selection'}
-              </Text>
-            </TouchableOpacity>
+            <View style={{ gap: 10 }}>
+              {item.patient ? (
+                <TouchableOpacity onPress={() => setSelectedPatient(item.patient || null)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <AppIcon name="person-circle-outline" size={20} color={colors.primary} />
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>Voir le patient</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity onPress={() => toggleSelection(item.id_rdv)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <AppIcon
+                  name={selectedIds.includes(item.id_rdv) ? 'checkbox' : 'square-outline'}
+                  size={20}
+                  color={selectedIds.includes(item.id_rdv) ? colors.primary : colors.textMuted}
+                />
+                <Text style={{ color: colors.text, fontWeight: '600' }}>
+                  {selectedIds.includes(item.id_rdv) ? 'Selectionne pour export' : 'Ajouter a la selection'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           }
         />
         {item.statut_rdv === 'en_attente' ? (
@@ -202,6 +219,17 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
                 onPress={() => updateStatus(item.id_rdv, 'refuse')}
               />
             </View>
+          </View>
+        ) : null}
+        {item.statut_rdv === 'confirme' ? (
+          <View style={{ marginBottom: 16 }}>
+            <AppButton
+              label="Archiver"
+              variant="outline"
+              fullWidth
+              loading={busyId === item.id_rdv}
+              onPress={() => updateStatus(item.id_rdv, 'archive')}
+            />
           </View>
         ) : null}
       </View>
@@ -267,6 +295,7 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
           windowSize={7}
         />
       )}
+      <PatientDetailsModal patient={selectedPatient} visible={Boolean(selectedPatient)} onClose={() => setSelectedPatient(null)} />
     </ScreenWrapper>
   );
 }

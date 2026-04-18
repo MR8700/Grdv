@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Text } from 'react-native';
 import { patientsApi } from '../../api/patients.api';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { PatientCard } from '../../components/rdv/PatientCard';
+import { PatientDetailsModal } from '../../components/rdv/PatientDetailsModal';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppPagination } from '../../components/shared/AppPagination';
-import { AppButton } from '../../components/ui/AppButton';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppLoader } from '../../components/ui/AppLoader';
-import { AppModal } from '../../components/ui/AppModal';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { Patient } from '../../types/models.types';
@@ -122,47 +121,7 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
         />
       )}
 
-      <AppModal
-        visible={Boolean(selectedPatient)}
-        onClose={() => setSelectedPatient(null)}
-        title={selectedPatient ? `${selectedPatient.utilisateur?.prenom || ''} ${selectedPatient.utilisateur?.nom || ''}`.trim() : 'Patient'}
-        actions={
-          selectedPatient ? (
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <AppButton label="Fermer" variant="ghost" style={{ flex: 1 }} onPress={() => setSelectedPatient(null)} />
-              <AppButton
-                label="Ouvrir le dossier"
-                style={{ flex: 1 }}
-                onPress={() => {
-                  const id = selectedPatient.id_user;
-                  setSelectedPatient(null);
-                  navigation?.navigate?.('PatientDossier', { id_patient: id });
-                }}
-              />
-            </View>
-          ) : null
-        }
-      >
-        {selectedPatient ? (
-          <View style={{ gap: 12 }}>
-            <Text style={{ color: colors.textMuted }}>
-              Dossier médical: {selectedPatient.id_dossier_medical || 'Non renseigné'}
-            </Text>
-            <Text style={{ color: colors.text }}>
-              E-mail: {selectedPatient.utilisateur?.email || 'Non renseigné'}
-            </Text>
-            <Text style={{ color: colors.text }}>
-              Groupe sanguin: {selectedPatient.groupe_sanguin || 'Non renseigné'}
-            </Text>
-            <Text style={{ color: colors.text }}>
-              Numéro de sécurité sociale: {selectedPatient.num_secu_sociale || 'Non renseigné'}
-            </Text>
-            <Text style={{ color: colors.text }}>
-              Statut du compte: {selectedPatient.utilisateur?.statut || 'Inconnu'}
-            </Text>
-          </View>
-        ) : null}
-      </AppModal>
+      <PatientDetailsModal patient={selectedPatient} visible={Boolean(selectedPatient)} onClose={() => setSelectedPatient(null)} />
     </ScreenWrapper>
   );
 }

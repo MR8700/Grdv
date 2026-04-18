@@ -14,8 +14,8 @@ router.get('/:id_dispo',    authenticateOptional, ctrl.getOne);
 
 router.use(authenticate);
 
-router.post('/',            checkRole('medecin', 'administrateur'), validate(v.createDispo), ctrl.create);
-router.put('/:id_dispo',    checkRole('medecin', 'administrateur'), ctrl.update);
-router.delete('/:id_dispo', checkRole('medecin', 'administrateur'), ctrl.remove);
+router.post('/',            checkRole('medecin', 'secretaire', 'administrateur'), validate(v.createDispo), ctrl.create);
+router.put('/:id_dispo',    checkRole('medecin', 'secretaire', 'administrateur'), ctrl.update);
+router.delete('/:id_dispo', checkRole('medecin', 'secretaire', 'administrateur'), ctrl.remove);
 
 module.exports = router;

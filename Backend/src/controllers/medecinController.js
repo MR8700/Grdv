@@ -43,9 +43,22 @@ async function getDoctorServiceIds(medecinId) {
 
 async function getAll(req, res, next) {
   try {
-    const { page = 1, limit = 20, specialite } = req.query;
+    const { page = 1, limit = 20, specialite, delegated_only } = req.query;
     const where = {};
     if (specialite) where.specialite_principale = specialite;
+
+    if (req.user.type_user === 'secretaire' && delegated_only === 'true') {
+      const delegations = await DelegationPermission.findAll({
+        where: { id_secretaire: req.user.id_user },
+        attributes: ['id_medecin'],
+      });
+
+      const doctorIds = [...new Set(delegations.map((delegation) => delegation.id_medecin).filter(Boolean))];
+      if (doctorIds.length === 0) {
+        return paginated(res, [], 0, page, limit);
+      }
+      where.id_user = doctorIds;
+    }
 
     const { count, rows } = await Medecin.findAndCountAll({
       where,

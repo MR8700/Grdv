@@ -43,6 +43,7 @@ export type PatientTabParamList = {
 
 export type SecretaireTabParamList = {
   GestionRdv: undefined;
+  Disponibilites: undefined;
   Patients: undefined;
   Notifications: undefined;
   Profil: undefined;

@@ -3,6 +3,7 @@ import { FlatList, Text } from 'react-native';
 import { patientsApi } from '../../api/patients.api';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { PatientCard } from '../../components/rdv/PatientCard';
+import { PatientDetailsModal } from '../../components/rdv/PatientDetailsModal';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppPagination } from '../../components/shared/AppPagination';
 import { AppEmpty } from '../../components/ui/AppEmpty';
@@ -20,6 +21,7 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const pageRef = useRef(1);
 
   useEffect(() => {
@@ -58,7 +60,13 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
   }, [fetchPatients]);
 
   const renderItem = useCallback(
-    ({ item }: { item: Patient }) => <PatientCard patient={item} subtitle={item.id_dossier_medical} />,
+    ({ item }: { item: Patient }) => (
+      <PatientCard
+        patient={item}
+        subtitle={item.id_dossier_medical || item.utilisateur?.email}
+        onPress={() => setSelectedPatient(item)}
+      />
+    ),
     []
   );
 
@@ -112,6 +120,8 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
           windowSize={7}
         />
       )}
+
+      <PatientDetailsModal patient={selectedPatient} visible={Boolean(selectedPatient)} onClose={() => setSelectedPatient(null)} />
     </ScreenWrapper>
   );
 }

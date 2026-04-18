@@ -4,6 +4,7 @@ import { useNotifContext } from '../store/NotifContext';
 import { ActorDrawerNavigator } from './ActorDrawerNavigator';
 import { GestionRdvScreen } from '../screens/secretaire/GestionRdvScreen';
 import { PatientsScreen } from '../screens/secretaire/PatientsScreen';
+import { DisponibilitesScreen } from '../screens/medecin/DisponibilitesScreen';
 import { ArchivesRdvScreen } from '../screens/shared/ArchivesRdvScreen';
 import { NotificationsScreen } from '../screens/shared/NotificationsScreen';
 import { ProfilScreen } from '../screens/shared/ProfilScreen';
@@ -22,7 +23,8 @@ function SecretaireTabs() {
 
   const items = useMemo<RoleTabItem[]>(() => [
     { key: 'GestionRdv', title: 'RDV', icon: 'calendar', component: GestionRdvScreen, visible: canAccess('voir_rdv') },
-    { key: 'Patients', title: 'Patients', icon: 'people', component: PatientsScreen, visible: canAccess('voir_utilisateurs') },
+    { key: 'Disponibilites', title: 'Creneaux', icon: 'time', component: DisponibilitesScreen, visible: canAccess('voir_disponibilites') || canAccess('gerer_planning') },
+    { key: 'Patients', title: 'Patients', icon: 'people', component: PatientsScreen, visible: canAccess('voir_utilisateurs') || canAccess('voir_dossier_medical') },
     { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
     { key: 'Archives', title: 'Archives', icon: 'archive', component: ArchivesRdvScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, visible: true },
@@ -43,7 +45,8 @@ export function SecretaireNavigator() {
 
   const items = useMemo<DrawerMenuItem[]>(() => [
     { key: 'GestionRdv', label: 'Rendez-vous', icon: 'calendar-outline', visible: canAccess('voir_rdv') },
-    { key: 'Patients', label: 'Patients', icon: 'people-outline', visible: canAccess('voir_utilisateurs') },
+    { key: 'Disponibilites', label: 'Creneaux', icon: 'time-outline', visible: canAccess('voir_disponibilites') || canAccess('gerer_planning') },
+    { key: 'Patients', label: 'Patients', icon: 'people-outline', visible: canAccess('voir_utilisateurs') || canAccess('voir_dossier_medical') },
     { key: 'Notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadCount, visible: true },
     { key: 'Archives', label: 'Archives', icon: 'archive-outline', visible: true },
     { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },

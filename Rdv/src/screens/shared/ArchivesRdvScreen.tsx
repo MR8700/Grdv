@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { rdvApi } from '../../api/rendezVous.api';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
+import { PatientDetailsModal } from '../../components/rdv/PatientDetailsModal';
 import { RdvCard } from '../../components/rdv/RdvCard';
 import { AppPagination } from '../../components/shared/AppPagination';
-import { AppButton } from '../../components/ui/AppButton';
 import { Toast } from '../../components/ui/AppAlert';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
@@ -14,7 +14,7 @@ import { AppLoader } from '../../components/ui/AppLoader';
 import { useAuth } from '../../store/AuthContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
-import { RendezVous } from '../../types/models.types';
+import { Patient, RendezVous } from '../../types/models.types';
 import { formatDate, formatDateTime } from '../../utils/formatters';
 
 function ArchiveAction({
@@ -51,6 +51,7 @@ export function ArchivesRdvScreen({ navigation }: { navigation?: any }) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const pageRef = useRef(1);
 
   useEffect(() => {
@@ -121,6 +122,9 @@ export function ArchivesRdvScreen({ navigation }: { navigation?: any }) {
         index={index}
         actions={
           <View style={{ gap: 10 }}>
+            {item.patient ? (
+              <ArchiveAction icon="person-circle-outline" label="Voir le patient" onPress={() => setSelectedPatient(item.patient || null)} />
+            ) : null}
             <Text style={{ color: colors.textMuted }}>
               Archive le {item.date_archivage ? formatDateTime(item.date_archivage) : formatDate(item.date_heure_rdv)}
             </Text>
@@ -185,6 +189,7 @@ export function ArchivesRdvScreen({ navigation }: { navigation?: any }) {
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
         />
       )}
+      <PatientDetailsModal patient={selectedPatient} visible={Boolean(selectedPatient)} onClose={() => setSelectedPatient(null)} />
     </ScreenWrapper>
   );
 }
