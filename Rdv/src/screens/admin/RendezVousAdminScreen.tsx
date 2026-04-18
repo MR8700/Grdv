@@ -1,18 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Text, TouchableOpacity, View } from 'react-native';
 import { rdvApi } from '../../api/rendezVous.api';
-import { AppDropdown } from '../../components/shared/AppDropdown';
-import { AppPagination } from '../../components/shared/AppPagination';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { RdvCard } from '../../components/rdv/RdvCard';
+import { AppDropdown } from '../../components/shared/AppDropdown';
+import { AppPagination } from '../../components/shared/AppPagination';
 import { AppButton } from '../../components/ui/AppButton';
+import { Toast } from '../../components/ui/AppAlert';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppLoader } from '../../components/ui/AppLoader';
-import { Toast } from '../../components/ui/AppAlert';
-import { useAppSettings } from '../../store/AppSettingsContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { RendezVous } from '../../types/models.types';
@@ -28,15 +27,43 @@ const STATUS_OPTIONS = [
   { label: 'Archive', value: 'archive' },
 ];
 
-export function GestionRdvScreen({ navigation }: { navigation?: any }) {
+function SelectionToggle({
+  selected,
+  label,
+  onPress,
+}: {
+  selected: boolean;
+  label: string;
+  onPress: () => void;
+}) {
   const { colors } = useTheme();
-  const { currentRole, rolePreferences } = useAppSettings();
-  const exportAllowed = rolePreferences[currentRole]?.exportEnabled !== false;
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 2,
+      }}
+    >
+      <AppIcon
+        name={selected ? 'checkbox' : 'square-outline'}
+        size={20}
+        color={selected ? colors.primary : colors.textMuted}
+      />
+      <Text style={{ color: colors.text, fontWeight: '600' }}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+export function RendezVousAdminScreen({ navigation }: { navigation?: any }) {
+  const { colors } = useTheme();
   const [items, setItems] = useState<RendezVous[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -67,6 +94,11 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
       setLoading(false);
     }
   }, [statusFilter]);
+
+  useEffect(() => {
+    pageRef.current = 1;
+    fetchRendezVous(1);
+  }, [fetchRendezVous, statusFilter]);
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -103,7 +135,7 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
     });
   }, [allVisibleSelected, filteredItems]);
 
-  const exportFiltered = useCallback(async () => {
+  const exportSelection = useCallback(async () => {
     if (selectedRows.length === 0) {
       Toast.info('Export PDF', 'Selectionnez au moins un rendez-vous.', 1800);
       return;
@@ -111,7 +143,7 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
 
     try {
       await exportToPdfAndShare({
-        title: 'Export rendez-vous secretaire',
+        title: 'Export rendez-vous administrateur',
         rows: selectedRows,
         filters: {
           Page: page,
@@ -135,103 +167,50 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
     }
   }, [page, search, selectedRows, statusFilter]);
 
-  const updateStatus = useCallback(async (id: number, statut_rdv: 'confirme' | 'refuse') => {
-    const target = items.find((rdv) => rdv.id_rdv === id);
-
-    try {
-      setBusyId(id);
-      setError(null);
-      await rdvApi.updateStatut(id, {
-        statut_rdv,
-        motif_refus: statut_rdv === 'refuse' ? 'Refus saisi depuis l ecran secretaire.' : undefined,
-      });
-
-      Toast.success('Statut mis a jour', statut_rdv === 'confirme' ? 'Rendez-vous confirme.' : 'Rendez-vous refuse.');
-      await fetchRendezVous(pageRef.current);
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ??
-        `Mise a jour du rendez-vous ${target ? `du ${formatDate(target.date_heure_rdv)} a ${formatTime(target.date_heure_rdv)}` : ''} impossible.`;
-      setError(message);
-      Toast.error('Action impossible', message);
-    } finally {
-      setBusyId(null);
-    }
-  }, [fetchRendezVous, items]);
-
-  useEffect(() => {
-    pageRef.current = 1;
-    fetchRendezVous(1);
-  }, [fetchRendezVous, statusFilter]);
-
   const renderItem = useCallback(
     ({ item, index }: { item: RendezVous; index: number }) => (
-      <View>
-        <RdvCard
-          rdv={item}
-          index={index}
-          actions={
-            <TouchableOpacity onPress={() => toggleSelection(item.id_rdv)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <AppIcon
-                name={selectedIds.includes(item.id_rdv) ? 'checkbox' : 'square-outline'}
-                size={20}
-                color={selectedIds.includes(item.id_rdv) ? colors.primary : colors.textMuted}
-              />
-              <Text style={{ color: colors.text, fontWeight: '600' }}>
-                {selectedIds.includes(item.id_rdv) ? 'Selectionne pour export' : 'Ajouter a la selection'}
-              </Text>
-            </TouchableOpacity>
-          }
-        />
-        {item.statut_rdv === 'en_attente' ? (
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-            <View style={{ flex: 1 }}>
-              <AppButton
-                label="Confirmer"
-                fullWidth
-                loading={busyId === item.id_rdv}
-                onPress={() => updateStatus(item.id_rdv, 'confirme')}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <AppButton
-                label="Refuser"
-                variant="outline"
-                fullWidth
-                loading={busyId === item.id_rdv}
-                onPress={() => updateStatus(item.id_rdv, 'refuse')}
-              />
-            </View>
-          </View>
-        ) : null}
-      </View>
+      <RdvCard
+        rdv={item}
+        index={index}
+        actions={
+          <SelectionToggle
+            selected={selectedIds.includes(item.id_rdv)}
+            label={selectedIds.includes(item.id_rdv) ? 'Selectionne pour export' : 'Ajouter a la selection'}
+            onPress={() => toggleSelection(item.id_rdv)}
+          />
+        }
+      />
     ),
-    [busyId, colors.primary, colors.text, colors.textMuted, selectedIds, toggleSelection, updateStatus]
+    [selectedIds, toggleSelection]
   );
 
   const listHeader = useMemo(
     () => (
       <>
         <AppHeader
-          title="Gestion des rendez-vous"
-          subtitle="Validation et suivi depuis /rendez-vous"
+          title="Tous les rendez-vous"
+          subtitle="Vue globale et export PDF"
           onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-          rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined}
+          rightActions={<AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportSelection} />}
         />
-
         <AppDropdown label="Filtrer par statut" value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />
         <AppInput label="Recherche rapide" value={search} onChangeText={setSearch} placeholder="Patient, medecin, motif ou ID" />
-        <TouchableOpacity onPress={toggleSelectAll} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <AppIcon name={allVisibleSelected ? 'checkbox' : 'square-outline'} size={20} color={allVisibleSelected ? colors.primary : colors.textMuted} />
-          <Text style={{ color: colors.text, fontWeight: '600' }}>
-            {allVisibleSelected ? 'Tout decocher sur la page' : 'Tout cocher sur la page'} ({selectedRows.length})
-          </Text>
-        </TouchableOpacity>
-
+        <View
+          style={{
+            marginBottom: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <SelectionToggle selected={allVisibleSelected} label="Tout cocher sur la page" onPress={toggleSelectAll} />
+          <Text style={{ color: colors.textMuted, fontWeight: '600' }}>{selectedRows.length} selection(s)</Text>
+        </View>
         {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
       </>
     ),
-    [allVisibleSelected, colors.danger, colors.primary, colors.text, colors.textMuted, error, exportAllowed, exportFiltered, navigation, search, selectedRows.length, statusFilter, toggleSelectAll]
+    [allVisibleSelected, colors.danger, colors.textMuted, error, exportSelection, navigation, search, selectedRows.length, statusFilter, toggleSelectAll]
   );
 
   return (
@@ -261,10 +240,6 @@ export function GestionRdvScreen({ navigation }: { navigation?: any }) {
           }
           ListEmptyComponent={<AppEmpty onRetry={() => fetchRendezVous(1)} subtitle="Aucun rendez-vous disponible pour ce filtre." />}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
-          removeClippedSubviews
-          initialNumToRender={6}
-          maxToRenderPerBatch={8}
-          windowSize={7}
         />
       )}
     </ScreenWrapper>

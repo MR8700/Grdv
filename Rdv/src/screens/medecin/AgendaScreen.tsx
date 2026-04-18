@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { dispoApi } from '../../api/disponibilites.api';
 import { rdvApi } from '../../api/rendezVous.api';
 import { AgendaDay } from '../../components/rdv/AgendaDay';
@@ -9,6 +9,7 @@ import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppButton } from '../../components/ui/AppButton';
 import { Toast } from '../../components/ui/AppAlert';
 import { AppHeader } from '../../components/ui/AppHeader';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { AppLoader } from '../../components/ui/AppLoader';
 import { AppModal } from '../../components/ui/AppModal';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
@@ -57,6 +58,7 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
   const [selectedDispoId, setSelectedDispoId] = useState<number | undefined>(undefined);
   const [selectedRdv, setSelectedRdv] = useState<RendezVous | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [selectedExportIds, setSelectedExportIds] = useState<number[]>([]);
 
   const fetchAgenda = useCallback(async () => {
     if (!user) return;
@@ -82,9 +84,11 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
         }),
       ]);
       setDisponibilites((dispoResponse.data as PaginatedResponse<Disponibilite>).data);
-      setRendezVous((rdvResponse.data as PaginatedResponse<RendezVous>).data);
+      const rdvRows = (rdvResponse.data as PaginatedResponse<RendezVous>).data;
+      setRendezVous(rdvRows);
+      setSelectedExportIds((current) => current.filter((id) => rdvRows.some((item) => item.id_rdv === id)));
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Impossible de charger l’agenda.');
+      setError(err?.response?.data?.message ?? 'Impossible de charger l agenda.');
     } finally {
       setLoading(false);
     }
@@ -108,13 +112,40 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
 
   const dayDisponibilites = disponibilites.filter((item) => item.date_heure_debut.startsWith(selectedDay));
   const dayRendezVous = rendezVous.filter((item) => item.date_heure_rdv.startsWith(selectedDay));
+  const selectedRows = dayRendezVous.filter((item) => selectedExportIds.includes(item.id_rdv));
+  const allVisibleSelected = dayRendezVous.length > 0 && dayRendezVous.every((item) => selectedExportIds.includes(item.id_rdv));
+
+  const toggleSelection = useCallback((id: number) => {
+    setSelectedExportIds((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]));
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedExportIds((current) => {
+      if (allVisibleSelected) {
+        return current.filter((id) => !dayRendezVous.some((item) => item.id_rdv === id));
+      }
+
+      const merged = new Set(current);
+      dayRendezVous.forEach((item) => merged.add(item.id_rdv));
+      return Array.from(merged);
+    });
+  }, [allVisibleSelected, dayRendezVous]);
 
   const exportDayPlanning = useCallback(async () => {
+    if (selectedRows.length === 0) {
+      Toast.info('Export PDF', 'Selectionnez au moins un rendez-vous.', 1800);
+      return;
+    }
+
     try {
       await exportToPdfAndShare({
-        title: 'Export planning médecin',
-        rows: dayRendezVous,
-        filters: { Jour: selectedDay, Créneaux_libres: dayDisponibilites.filter((d) => d.est_libre).length },
+        title: 'Export planning medecin',
+        rows: selectedRows,
+        filters: {
+          Jour: selectedDay,
+          Creneaux_libres: dayDisponibilites.filter((d) => d.est_libre).length,
+          Selection: selectedRows.length,
+        },
         columns: [
           { key: 'id', label: 'ID RDV', value: (r) => r.id_rdv },
           { key: 'date', label: 'Date', value: (r) => formatDate(r.date_heure_rdv) },
@@ -124,18 +155,18 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
           { key: 'motif', label: 'Motif', value: (r) => r.motif || '' },
         ],
       });
-      Toast.success('PDF prêt', `${dayRendezVous.length} rendez-vous exporté(s) pour le ${selectedDay}.`);
+      Toast.success('PDF prêt', `${selectedRows.length} rendez-vous exporté(s) pour le ${selectedDay}.`);
     } catch (exportError) {
       Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
     }
-  }, [dayDisponibilites, dayRendezVous, selectedDay]);
+  }, [dayDisponibilites, selectedDay, selectedRows]);
 
   const updateAppointmentStatus = useCallback(async (rdv: RendezVous, statut_rdv: 'confirme' | 'refuse') => {
     try {
       setUpdatingId(rdv.id_rdv);
       await rdvApi.updateStatut(rdv.id_rdv, {
         statut_rdv,
-        motif_refus: statut_rdv === 'refuse' ? 'Refus saisi par le médecin.' : undefined,
+        motif_refus: statut_rdv === 'refuse' ? 'Refus saisi par le medecin.' : undefined,
       });
       Toast.success(
         'Rendez-vous mis à jour',
@@ -158,9 +189,17 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
         rightActions={exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportDayPlanning} /> : undefined}
       />
+      {dayRendezVous.length > 0 ? (
+        <TouchableOpacity onPress={toggleSelectAll} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, paddingHorizontal: 4 }}>
+          <AppIcon name={allVisibleSelected ? 'checkbox' : 'square-outline'} size={20} color={allVisibleSelected ? colors.primary : colors.textMuted} />
+          <Text style={{ color: colors.text, fontWeight: '600' }}>
+            {allVisibleSelected ? 'Tout decocher sur la journee' : 'Tout cocher sur la journee'} ({selectedRows.length})
+          </Text>
+        </TouchableOpacity>
+      ) : null}
       {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
       {loading && disponibilites.length === 0 && rendezVous.length === 0 ? (
-        <AppLoader message="Chargement de l’agenda..." />
+        <AppLoader message="Chargement de l agenda..." />
       ) : weekData.length === 0 ? (
         <AppEmpty subtitle="Aucune donnée disponible pour cette semaine." onRetry={fetchAgenda} />
       ) : (
@@ -209,6 +248,16 @@ export function AgendaScreen({ navigation }: { navigation?: any }) {
       >
         {selectedRdv ? (
           <View style={{ gap: 12 }}>
+            <TouchableOpacity onPress={() => toggleSelection(selectedRdv.id_rdv)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <AppIcon
+                name={selectedExportIds.includes(selectedRdv.id_rdv) ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={selectedExportIds.includes(selectedRdv.id_rdv) ? colors.primary : colors.textMuted}
+              />
+              <Text style={{ color: colors.text, fontWeight: '600' }}>
+                {selectedExportIds.includes(selectedRdv.id_rdv) ? 'Retirer de l export' : 'Ajouter à l export'}
+              </Text>
+            </TouchableOpacity>
             <Text style={{ color: colors.text, fontWeight: '700' }}>
               Patient: {selectedRdv.patient?.utilisateur?.prenom} {selectedRdv.patient?.utilisateur?.nom}
             </Text>

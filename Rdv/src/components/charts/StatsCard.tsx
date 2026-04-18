@@ -46,7 +46,7 @@ function StatsCardComponent({ label, value, icon, color, subtitle, trend, onPres
             <Text numberOfLines={1} style={[styles.label, { color: colors.textMuted }]}>
               {label}
             </Text>
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={[styles.value, { color: colors.text }]}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.68} style={[styles.value, { color: colors.text }]}>
               {value}
             </Text>
             {subtitle ? <Text numberOfLines={2} style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text> : null}
@@ -86,10 +86,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
   },
-  label: { fontSize: 12, fontWeight: '500', marginBottom: 4 },
-  value: { fontSize: 24, fontWeight: '800', lineHeight: 28 },
-  subtitle: { fontSize: 12, marginTop: 4 },
-  trend: { fontSize: 12, marginTop: 4, fontWeight: '600', flexShrink: 1 },
+  label: { fontSize: 11, fontWeight: '500', marginBottom: 4 },
+  value: { fontSize: 21, fontWeight: '800', lineHeight: 24 },
+  subtitle: { fontSize: 11, marginTop: 4, lineHeight: 15 },
+  trend: { fontSize: 11, marginTop: 4, fontWeight: '600', flexShrink: 1, lineHeight: 15 },
   iconContainer: {
     borderRadius: 12,
     padding: 12,
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
-  icon: { fontSize: 28 },
+  icon: { fontSize: 24 },
   progressBg: {
     height: 4,
     borderRadius: 2,

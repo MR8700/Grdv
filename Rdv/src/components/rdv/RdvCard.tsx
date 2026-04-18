@@ -13,6 +13,7 @@ interface RdvCardProps {
   rdv: RendezVous;
   onPress?: () => void;
   index?: number;
+  actions?: React.ReactNode;
 }
 
 const statutMap: Record<string, 'EN_ATTENTE' | 'CONFIRME' | 'REFUSE' | 'ANNULE' | 'ARCHIVE' | 'TERMINE'> = {
@@ -24,7 +25,7 @@ const statutMap: Record<string, 'EN_ATTENTE' | 'CONFIRME' | 'REFUSE' | 'ANNULE' 
   termine: 'TERMINE',
 };
 
-function RdvCardComponent({ rdv, onPress, index = 0 }: RdvCardProps) {
+function RdvCardComponent({ rdv, onPress, index = 0, actions }: RdvCardProps) {
   const { colors } = useTheme();
   const patient = rdv.patient?.utilisateur;
   const medecin = rdv.medecin?.utilisateur;
@@ -89,6 +90,8 @@ function RdvCardComponent({ rdv, onPress, index = 0 }: RdvCardProps) {
             </Text>
           </View>
         )}
+
+        {actions ? <View style={{ marginTop: 12 }}>{actions}</View> : null}
       </AppCard>
     </Animated.View>
   );

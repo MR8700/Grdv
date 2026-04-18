@@ -23,7 +23,7 @@ async function run() {
 
   // 1. Archiver les RDV confirmés anciens (statut logique — pas de suppression)
   const [archivesCount] = await RendezVous.update(
-    { statut_rdv: STATUT_RDV.ARCHIVE },
+    { statut_rdv: STATUT_RDV.ARCHIVE, date_archivage: new Date() },
     {
       where: {
         statut_rdv    : STATUT_RDV.CONFIRME,

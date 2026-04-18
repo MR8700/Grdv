@@ -6,6 +6,7 @@ import { HomePatientScreen } from '../screens/patient/HomePatientScreen';
 import { PriseRdvScreen } from '../screens/patient/PriseRdvScreen';
 import { MesRdvScreen } from '../screens/patient/MesRdvScreen';
 import { MonDossierScreen } from '../screens/patient/MonDossierScreen';
+import { ArchivesRdvScreen } from '../screens/shared/ArchivesRdvScreen';
 import { NotificationsScreen } from '../screens/shared/NotificationsScreen';
 import { ProfilScreen } from '../screens/shared/ProfilScreen';
 import { SynchronisationScreen } from '../screens/shared/SynchronisationScreen';
@@ -26,10 +27,11 @@ function PatientTabs() {
     { key: 'PriseRdv', title: 'Prendre RDV', icon: 'calendar', component: PriseRdvScreen, visible: canAccess('creer_rdv') },
     { key: 'MesRdv', title: 'Mes RDV', icon: 'clipboard', component: MesRdvScreen, visible: canAccess('voir_rdv') },
     { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
+    { key: 'Archives', title: 'Archives', icon: 'archive', component: ArchivesRdvScreen, hidden: true },
     { key: 'MonDossier', title: 'Dossier', icon: 'folder', component: MonDossierScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, hidden: true },
     { key: 'Synchronisation', title: 'Synchro', icon: 'construct', component: SynchronisationScreen, hidden: true },
-    { key: 'Parametres', title: 'Réglages', icon: 'construct', component: ParametresScreen, hidden: true },
+    { key: 'Parametres', title: 'Reglages', icon: 'construct', component: ParametresScreen, hidden: true },
   ], [canAccess, unreadCount]);
 
   return <RoleTabNavigator items={items} />;
@@ -48,10 +50,11 @@ export function PatientNavigator() {
     { key: 'PriseRdv', label: 'Prendre RDV', icon: 'calendar-outline', visible: canAccess('creer_rdv') },
     { key: 'MesRdv', label: 'Mes RDV', icon: 'clipboard-outline', visible: canAccess('voir_rdv') },
     { key: 'Notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadCount, visible: true },
+    { key: 'Archives', label: 'Archives', icon: 'archive-outline', visible: true },
     { key: 'MonDossier', label: 'Mon dossier', icon: 'folder-outline', visible: true },
     { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
     { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
-    { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
+    { key: 'Parametres', label: 'Parametres', icon: 'settings-outline', visible: true },
   ], [canAccess, unreadCount]);
 
   return <ActorDrawerNavigator items={items} rootRouteName="PatientTabs" rootComponent={PatientTabs} />;

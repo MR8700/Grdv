@@ -7,6 +7,7 @@ import { DisponibilitesScreen } from '../screens/medecin/DisponibilitesScreen';
 import { PatientsScreen } from '../screens/medecin/PatientsScreen';
 import { PatientDossierScreen } from '../screens/medecin/PatientDossierScreen';
 import { StatsMedecinScreen } from '../screens/medecin/StatsMedecinScreen';
+import { ArchivesRdvScreen } from '../screens/shared/ArchivesRdvScreen';
 import { NotificationsScreen } from '../screens/shared/NotificationsScreen';
 import { DelegationsScreen } from '../screens/medecin/DelegationsScreen';
 import { ProfilScreen } from '../screens/shared/ProfilScreen';
@@ -25,15 +26,16 @@ function MedecinTabs() {
 
   const items = useMemo<RoleTabItem[]>(() => [
     { key: 'Agenda', title: 'Agenda', icon: 'calendar', component: AgendaScreen, visible: true },
-    { key: 'Disponibilites', title: 'Créneaux', icon: 'time', component: DisponibilitesScreen, visible: canAccess('voir_disponibilites') },
+    { key: 'Disponibilites', title: 'Creneaux', icon: 'time', component: DisponibilitesScreen, visible: canAccess('voir_disponibilites') },
     { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
     { key: 'Patients', title: 'Patients', icon: 'people', component: PatientsScreen, visible: canAccess('voir_dossier_medical') },
+    { key: 'Archives', title: 'Archives', icon: 'archive', component: ArchivesRdvScreen, hidden: true },
     { key: 'StatsMedecin', title: 'Stats', icon: 'bar-chart', component: StatsMedecinScreen, hidden: true },
     { key: 'PatientDossier', title: 'Dossier patient', icon: 'folder', component: PatientDossierScreen, hidden: true },
-    { key: 'Delegations', title: 'Délégations', icon: 'shield', component: DelegationsScreen, hidden: true },
+    { key: 'Delegations', title: 'Delegations', icon: 'shield', component: DelegationsScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, hidden: true },
     { key: 'Synchronisation', title: 'Synchro', icon: 'construct', component: SynchronisationScreen, hidden: true },
-    { key: 'Parametres', title: 'Réglages', icon: 'construct', component: ParametresScreen, hidden: true },
+    { key: 'Parametres', title: 'Reglages', icon: 'construct', component: ParametresScreen, hidden: true },
   ], [canAccess, unreadCount]);
 
   return <RoleTabNavigator items={items} />;
@@ -49,14 +51,15 @@ export function MedecinNavigator() {
 
   const items = useMemo<DrawerMenuItem[]>(() => [
     { key: 'Agenda', label: 'Agenda', icon: 'calendar-outline', visible: true },
-    { key: 'Disponibilites', label: 'Créneaux', icon: 'time-outline', visible: canAccess('voir_disponibilites') },
+    { key: 'Disponibilites', label: 'Creneaux', icon: 'time-outline', visible: canAccess('voir_disponibilites') },
     { key: 'Patients', label: 'Patients', icon: 'people-outline', visible: canAccess('voir_dossier_medical') },
+    { key: 'Archives', label: 'Archives', icon: 'archive-outline', visible: true },
     { key: 'Notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadCount, visible: true },
     { key: 'StatsMedecin', label: 'Statistiques', icon: 'bar-chart-outline', visible: true },
-    { key: 'Delegations', label: 'Délégations', icon: 'shield-outline', visible: true },
+    { key: 'Delegations', label: 'Delegations', icon: 'shield-outline', visible: true },
     { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
     { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
-    { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
+    { key: 'Parametres', label: 'Parametres', icon: 'settings-outline', visible: true },
   ], [canAccess, unreadCount]);
 
   return <ActorDrawerNavigator items={items} rootRouteName="MedecinTabs" rootComponent={MedecinTabs} />;

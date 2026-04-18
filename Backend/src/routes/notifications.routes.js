@@ -14,6 +14,7 @@ router.get('/',          validate(v.query, 'query'), ctrl.getMine);
 
 // PATCH /api/v1/notifications/:id_notif/lu
 router.patch('/:id_notif/lu', validate(v.idParam, 'params'), ctrl.markAsRead);
+router.patch('/:id_notif/lu-utilisateur', validate(v.markRecipientRead, 'params'), ctrl.markRecipientAsRead);
 
 // PATCH /api/v1/notifications/lu-tout
 router.patch('/lu-tout', ctrl.markAllAsRead);

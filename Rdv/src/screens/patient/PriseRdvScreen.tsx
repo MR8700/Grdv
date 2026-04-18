@@ -18,7 +18,6 @@ import { AppEmpty } from '../../components/ui/AppEmpty';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { Disponibilite, Medecin, Service } from '../../types/models.types';
-import { PdfExportButton } from '../../components/ui/PdfExportButton';
 import { formatDateTime } from '../../utils/formatters';
  
 export function PriseRdvScreen({ navigation, route }: { navigation?: any; route?: any }) {
@@ -114,7 +113,7 @@ export function PriseRdvScreen({ navigation, route }: { navigation?: any; route?
       await rdvApi.create({
         id_dispo: selectedDispo.id_dispo,
         id_medecin: selectedDispo.id_medecin,
-        date_heure_rdv: selectedDispo.date_heure_debut,
+        date_heure_rdv: new Date(selectedDispo.date_heure_debut).toISOString(),
         motif,
       });
       setMessage('Votre demande de rendez-vous a été envoyée.');
@@ -136,24 +135,6 @@ export function PriseRdvScreen({ navigation, route }: { navigation?: any; route?
         title="Prendre un rendez-vous"
         subtitle="Sélection d'un créneau via les créneaux disponibles"
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={
-          <PdfExportButton
-            title="Export prise de rendez-vous"
-            rows={disponibilites}
-            filters={{
-              Medecin: selectedMedecin ? `${selectedMedecin.utilisateur?.prenom || ''} ${selectedMedecin.utilisateur?.nom || ''}`.trim() : 'Non choisi',
-              Service: serviceId === 'all' ? 'Tous' : serviceId,
-              Selection: selectedDispo ? String(selectedDispo.id_dispo) : 'Aucune',
-            }}
-            columns={[
-              { key: 'id', label: 'ID', value: (d) => d.id_dispo },
-              { key: 'debut', label: 'Début', value: (d) => formatDateTime(d.date_heure_debut) },
-              { key: 'fin', label: 'Fin', value: (d) => formatDateTime(d.date_heure_fin) },
-              { key: 'libre', label: 'Libre', value: (d) => (d.est_libre ? 'Oui' : 'Non') },
-              { key: 'service', label: 'Service', value: (d) => d.service?.nom_service || '' },
-            ]}
-          />
-        }
       />
       <AppSnackbar visible={!!message} message={message ?? ''} variant="success" />
       {error && <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text>}

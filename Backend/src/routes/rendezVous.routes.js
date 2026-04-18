@@ -12,6 +12,7 @@ router.use(authenticate);
 
 // GET    /api/v1/rendez-vous
 router.get('/',       validate(v.query, 'query'), ctrl.getAll);
+router.get('/archives', validate(v.archiveQuery, 'query'), ctrl.getArchives);
 
 // POST   /api/v1/rendez-vous
 router.post('/',      validate(v.create), auditAfter('rendez_vous'), ctrl.create);
@@ -29,9 +30,23 @@ router.patch('/:id_rdv/statut',
 
 // DELETE /api/v1/rendez-vous/:id_rdv  (annulation par le patient)
 router.delete('/:id_rdv',
-  validate(v.idParam, 'params'),
+  validateMany({ params: v.idParam, body: v.cancel }),
   auditAfter('rendez_vous'),
   ctrl.cancel
+);
+
+router.patch('/:id_rdv/archive/reset',
+  checkRole('administrateur'),
+  validate(v.archiveActionParams, 'params'),
+  auditAfter('rendez_vous'),
+  ctrl.resetArchiveDelay
+);
+
+router.delete('/:id_rdv/archive/permanent',
+  checkRole('administrateur'),
+  validate(v.archiveActionParams, 'params'),
+  auditAfter('rendez_vous'),
+  ctrl.removePermanent
 );
 
 module.exports = router;

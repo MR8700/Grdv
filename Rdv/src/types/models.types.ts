@@ -118,6 +118,7 @@ export interface RendezVous {
   statut_rdv: StatutRdv;
   motif?: string;
   date_enregistrement: string;
+  date_archivage?: string;
   patient?: Patient;
   medecin?: Medecin;
   disponibilite?: Disponibilite;
@@ -126,11 +127,17 @@ export interface RendezVous {
 export interface Notification {
   id_notif: number;
   id_user: number;
+  source_notification_id?: number | null;
+  recipient_user_id?: number | null;
+  created_by_user_id?: number | null;
   id_rdv?: number;
   type_notification: TypeNotification;
   message: string;
   lu: boolean;
   date_envoi: string;
+  utilisateur?: Utilisateur;
+  recipient_user?: Utilisateur;
+  created_by_user?: Utilisateur;
 }
 
 export interface AuditLog {

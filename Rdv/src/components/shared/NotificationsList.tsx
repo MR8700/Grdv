@@ -11,6 +11,7 @@ interface Props {
   notifications: AppNotification[];
   onPressItem?: (n: AppNotification) => void;
   onMarkRead?: (id: number) => void;
+  onMarkRecipientRead?: (id: number) => void;
   onDelete?: (id: number) => void;
   ListHeaderComponent?: React.ReactElement | null;
   ListFooterComponent?: React.ReactElement | null;
@@ -22,11 +23,13 @@ function NotificationItem({
   notification,
   onPressItem,
   onMarkRead,
+  onMarkRecipientRead,
   onDelete,
 }: {
   notification: AppNotification;
   onPressItem?: (n: AppNotification) => void;
   onMarkRead?: (id: number) => void;
+  onMarkRecipientRead?: (id: number) => void;
   onDelete?: (id: number) => void;
 }) {
   const { colors } = useTheme();
@@ -59,6 +62,12 @@ function NotificationItem({
                 {notification.message}
               </Text>
 
+              {notification.recipient_user && notification.recipient_user.id_user !== notification.id_user ? (
+                <Text style={{ color: colors.primary, marginTop: 6, fontSize: 12, fontWeight: '700' }}>
+                  Destinataire: {notification.recipient_user.prenom} {notification.recipient_user.nom}
+                </Text>
+              ) : null}
+
               <Text style={{ color: colors.textLight, marginTop: 8, fontSize: 12 }}>
                 {formatRelativeTime(notification.date_envoi)}
               </Text>
@@ -81,7 +90,15 @@ function NotificationItem({
             {!notification.lu ? (
               <TouchableOpacity onPress={() => onMarkRead?.(notification.id_notif)}>
                 <Text style={{ color: colors.primary, fontWeight: '700' }}>
-                  Marquer comme lu
+                  {notification.source_notification_id ? 'Marque lu pour soi' : 'Marquer comme lu'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+
+            {notification.source_notification_id && onMarkRecipientRead ? (
+              <TouchableOpacity onPress={() => onMarkRecipientRead?.(notification.id_notif)}>
+                <Text style={{ color: colors.success, fontWeight: '700' }}>
+                  Lu pour l'utilisateur
                 </Text>
               </TouchableOpacity>
             ) : null}
@@ -102,6 +119,7 @@ export function NotificationsList({
   notifications,
   onPressItem,
   onMarkRead,
+  onMarkRecipientRead,
   onDelete,
   ListHeaderComponent,
   ListFooterComponent,
@@ -110,14 +128,15 @@ export function NotificationsList({
 }: Props) {
   const renderItem = React.useCallback<ListRenderItem<AppNotification>>(
     ({ item }) => (
-      <NotificationItem
-        notification={item}
-        onPressItem={onPressItem}
-        onMarkRead={onMarkRead}
-        onDelete={onDelete}
-      />
-    ),
-    [onDelete, onMarkRead, onPressItem]
+        <NotificationItem
+          notification={item}
+          onPressItem={onPressItem}
+          onMarkRead={onMarkRead}
+          onMarkRecipientRead={onMarkRecipientRead}
+          onDelete={onDelete}
+        />
+      ),
+    [onDelete, onMarkRead, onMarkRecipientRead, onPressItem]
   );
 
   return (

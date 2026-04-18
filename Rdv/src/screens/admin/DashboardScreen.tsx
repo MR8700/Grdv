@@ -8,13 +8,11 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { StatsCarousel } from '../../components/charts/StatsCarousel';
 import { RdvBarChart } from '../../components/charts/RdvBarChart';
-import { Toast } from '../../components/ui/AppAlert';
 import { rdvApi } from '../../api/rendezVous.api';
 import { utilisateursApi } from '../../api/utilisateurs.api';
 import { PaginatedResponse } from '../../types/api.types';
 import { RendezVous } from '../../types/models.types';
 import { COLORS, REFRESH_INTERVALS } from '../../utils/constants';
-import { exportToPdfAndShare } from '../../utils/pdfExport';
  
 function buildLast7Days() {
   return Array.from({ length: 7 }, (_, index) => {
@@ -140,24 +138,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
     { icon: 'LOG', label: 'Audit Logs', screen: 'AuditLogs' },
   ];
 
-  const exportDashboard = useCallback(async () => {
-    try {
-      await exportToPdfAndShare({
-        title: 'Export tableau de bord admin',
-        rows: statCards,
-        filters: { Date: new Date().toLocaleDateString('fr-FR') },
-        columns: [
-          { key: 'label', label: 'Carte', value: (s) => s.label },
-          { key: 'value', label: 'Valeur', value: (s) => s.value },
-          { key: 'subtitle', label: 'Details', value: (s) => s.subtitle || '' },
-        ],
-      });
-      Toast.success('PDF pret', 'Synthese admin exportee.');
-    } catch {
-      Toast.error('Export PDF impossible', 'La generation ou le partage du PDF a echoue.');
-    }
-  }, [statCards]);
-
   return (
     <ScreenWrapper scroll onRefresh={fetchStats} refreshing={loading}>
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
@@ -175,12 +155,6 @@ export function DashboardScreen({ navigation }: { navigation: any }) {
               {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={exportDashboard}
-            style={styles.exportButton}
-          >
-            <Text style={styles.exportLabel}>Exporter PDF</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -224,19 +198,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  exportButton: {
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-  },
-  exportLabel: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
   },
   menuButton: {
     width: 42,

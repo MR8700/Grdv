@@ -7,6 +7,10 @@ const idParam = Joi.object({
   id_rdv: Joi.number().integer().positive().required(),
 });
 
+const archiveActionParams = Joi.object({
+  id_rdv: Joi.number().integer().positive().required(),
+});
+
 const create = Joi.object({
   id_dispo      : Joi.number().integer().positive().required(),
   id_medecin    : Joi.number().integer().positive().required(),
@@ -28,6 +32,13 @@ const updateStatut = Joi.object({
   }),
 });
 
+const cancel = Joi.object({
+  justification: Joi.string().trim().max(500).required().messages({
+    'any.required': "Une justification d'annulation est requise.",
+    'string.empty': "Une justification d'annulation est requise.",
+  }),
+});
+
 const query = Joi.object({
   page      : Joi.number().integer().min(1).default(1),
   limit     : Joi.number().integer().min(1).max(100).default(20),
@@ -38,4 +49,11 @@ const query = Joi.object({
   date_fin  : Joi.date().iso().min(Joi.ref('date_debut')).optional(),
 });
 
-module.exports = { idParam, create, updateStatut, query };
+const archiveQuery = Joi.object({
+  page      : Joi.number().integer().min(1).default(1),
+  limit     : Joi.number().integer().min(1).max(100).default(20),
+  id_medecin: Joi.number().integer().positive().optional(),
+  id_patient: Joi.number().integer().positive().optional(),
+});
+
+module.exports = { idParam, archiveActionParams, create, updateStatut, cancel, query, archiveQuery };

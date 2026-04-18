@@ -11,14 +11,14 @@ import { Toast } from '../../components/ui/AppAlert';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppLoader } from '../../components/ui/AppLoader';
-import { useAppSettings } from '../../store/AppSettingsContext';
+import { AppInput } from '../../components/ui/AppInput';
+import { AppModal } from '../../components/ui/AppModal';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { RendezVous, StatutRdv } from '../../types/models.types';
 import { REFRESH_INTERVALS } from '../../utils/constants';
 import { formatDate, formatTime } from '../../utils/formatters';
-import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfExport';
 
 const STATUS_OPTIONS = [
   { label: 'Tous les statuts', value: 'all' },
@@ -45,8 +45,6 @@ function buildStatusMessage(rdv: RendezVous) {
 
 export function MesRdvScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
-  const { currentRole, rolePreferences } = useAppSettings();
-  const exportAllowed = rolePreferences[currentRole]?.exportEnabled !== false;
   const [items, setItems] = useState<RendezVous[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -54,6 +52,8 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [cancelReason, setCancelReason] = useState('');
+  const [pendingCancel, setPendingCancel] = useState<RendezVous | null>(null);
 
   const previousStatusRef = useRef<Record<number, StatutRdv>>({});
   const pageRef = useRef(1);
@@ -61,6 +61,11 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
   useEffect(() => {
     pageRef.current = page;
   }, [page]);
+
+  const closeCancelModal = useCallback(() => {
+    setPendingCancel(null);
+    setCancelReason('');
+  }, []);
 
   const fetchRendezVous = useCallback(
     async (targetPage = pageRef.current) => {
@@ -97,46 +102,25 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
     [statusFilter]
   );
 
-  const exportFiltered = useCallback(async () => {
-    try {
-      await exportToPdfAndShare({
-        title: 'Export rendez-vous patient',
-        rows: items,
-        filters: { Page: page, Statut: statusFilter === 'all' ? 'Tous' : statusFilter },
-        columns: [
-          { key: 'id', label: 'ID', value: (r) => r.id_rdv },
-          { key: 'date', label: 'Date', value: (r) => formatDate(r.date_heure_rdv) },
-          { key: 'heure', label: 'Heure', value: (r) => formatTime(r.date_heure_rdv) },
-          { key: 'statut', label: 'Statut', value: (r) => r.statut_rdv },
-          { key: 'motif', label: 'Motif', value: (r) => r.motif || '' },
-          {
-            key: 'medecin',
-            label: 'Medecin',
-            value: (r) => `${r.medecin?.utilisateur?.prenom || ''} ${r.medecin?.utilisateur?.nom || ''}`.trim(),
-          },
-        ],
-      });
-      Toast.success('PDF pret', `${items.length} rendez-vous exporte(s).`);
-    } catch (exportError) {
-      Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
-    }
-  }, [items, page, statusFilter]);
-
   const cancelRendezVous = useCallback(
-    async (id: number) => {
+    async () => {
+      if (!pendingCancel) return;
+
       try {
-        setBusyId(id);
-        await rdvApi.cancel(id);
-        Toast.success('Rendez-vous annule', 'Votre demande a bien ete prise en compte.');
+        setBusyId(pendingCancel.id_rdv);
+        await rdvApi.cancel(pendingCancel.id_rdv, { justification: cancelReason.trim() });
+        Toast.success('Rendez-vous annule', 'Votre demande d annulation a ete enregistree.');
+        closeCancelModal();
         await fetchRendezVous(pageRef.current);
       } catch (err: any) {
-        setError(err?.response?.data?.message ?? 'Annulation impossible.');
-        Toast.error('Annulation impossible', err?.response?.data?.message ?? 'Erreur backend.');
+        const message = err?.response?.data?.message ?? 'Annulation impossible.';
+        setError(message);
+        Toast.error('Annulation impossible', message);
       } finally {
         setBusyId(null);
       }
     },
-    [fetchRendezVous]
+    [cancelReason, closeCancelModal, fetchRendezVous, pendingCancel]
   );
 
   useEffect(() => {
@@ -155,17 +139,20 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
         {item.statut_rdv !== 'annule' && item.statut_rdv !== 'archive' && (
           <View style={{ marginBottom: 16 }}>
             <AppButton
-              label={busyId === item.id_rdv ? 'Annulation...' : 'Annuler'}
+              label={busyId === item.id_rdv ? 'Annulation...' : item.statut_rdv === 'confirme' ? "Demande d'annulation" : 'Annuler'}
               variant="outline"
               fullWidth
               loading={busyId === item.id_rdv}
-              onPress={() => cancelRendezVous(item.id_rdv)}
+              onPress={() => {
+                setPendingCancel(item);
+                setCancelReason('');
+              }}
             />
           </View>
         )}
       </View>
     ),
-    [busyId, cancelRendezVous]
+    [busyId]
   );
 
   const listHeader = useMemo(
@@ -175,9 +162,6 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
           title="Mes rendez-vous"
           subtitle="Suivi et confirmation"
           onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-          rightActions={
-            exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined
-          }
         />
 
         <AppDropdown label="Filtrer par statut" value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />
@@ -185,7 +169,7 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
         {error ? <Text style={{ color: colors.danger, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
       </>
     ),
-    [colors.danger, error, exportAllowed, exportFiltered, navigation, statusFilter]
+    [colors.danger, error, navigation, statusFilter]
   );
 
   return (
@@ -196,36 +180,76 @@ export function MesRdvScreen({ navigation }: { navigation?: any }) {
           <AppLoader message="Chargement des rendez-vous..." />
         </>
       ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(item) => String(item.id_rdv)}
-          renderItem={renderItem}
-          refreshing={loading}
-          onRefresh={() => fetchRendezVous(pageRef.current)}
-          ListHeaderComponent={listHeader}
-          ListFooterComponent={
-            items.length > 0 ? (
-              <AppPagination
-                page={page}
-                totalPages={totalPages}
-                onPrev={() => fetchRendezVous(page - 1)}
-                onNext={() => fetchRendezVous(page + 1)}
+        <>
+          <FlatList
+            data={items}
+            keyExtractor={(item) => String(item.id_rdv)}
+            renderItem={renderItem}
+            refreshing={loading}
+            onRefresh={() => fetchRendezVous(pageRef.current)}
+            ListHeaderComponent={listHeader}
+            ListFooterComponent={
+              items.length > 0 ? (
+                <AppPagination
+                  page={page}
+                  totalPages={totalPages}
+                  onPrev={() => fetchRendezVous(page - 1)}
+                  onNext={() => fetchRendezVous(page + 1)}
+                />
+              ) : null
+            }
+            ListEmptyComponent={
+              <AppEmpty
+                title="Aucun rendez-vous"
+                subtitle="Aucun element ne correspond au filtre actuel."
+                onRetry={() => fetchRendezVous(1)}
               />
-            ) : null
-          }
-          ListEmptyComponent={
-            <AppEmpty
-              title="Aucun rendez-vous"
-              subtitle="Aucun element ne correspond au filtre actuel."
-              onRetry={() => fetchRendezVous(1)}
+            }
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
+            removeClippedSubviews
+            initialNumToRender={6}
+            maxToRenderPerBatch={8}
+            windowSize={7}
+          />
+
+          <AppModal
+            visible={Boolean(pendingCancel)}
+            onClose={closeCancelModal}
+            title="Annuler le rendez-vous"
+            actions={
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <AppButton label="Fermer" variant="ghost" fullWidth onPress={closeCancelModal} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppButton
+                    label="Confirmer"
+                    fullWidth
+                    disabled={!cancelReason.trim() || busyId === pendingCancel?.id_rdv}
+                    loading={busyId === pendingCancel?.id_rdv}
+                    onPress={cancelRendezVous}
+                  />
+                </View>
+              </View>
+            }
+          >
+            <Text style={{ color: colors.text, fontWeight: '700', marginBottom: 8 }}>
+              Une justification est obligatoire avant l'annulation.
+            </Text>
+            <Text style={{ color: colors.textMuted, marginBottom: 14 }}>
+              Cette justification sera transmise aux utilisateurs lies au rendez-vous.
+            </Text>
+            <AppInput
+              label="Justification"
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              placeholder="Expliquez la raison de votre annulation"
+              multiline
+              numberOfLines={4}
+              style={{ minHeight: 110, textAlignVertical: 'top' as const }}
             />
-          }
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
-          removeClippedSubviews
-          initialNumToRender={6}
-          maxToRenderPerBatch={8}
-          windowSize={7}
-        />
+          </AppModal>
+        </>
       )}
     </ScreenWrapper>
   );

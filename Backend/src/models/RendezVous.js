@@ -52,6 +52,10 @@ const RendezVous = sequelize.define('RendezVous', {
     allowNull    : false,
     defaultValue : DataTypes.NOW,
   },
+  date_archivage: {
+    type      : DataTypes.DATE,
+    allowNull : true,
+  },
 }, {
   tableName  : 'rendez_vous',
   timestamps : false,

@@ -5,11 +5,11 @@ const {
   Utilisateur,
   Role,
   Permission,
-  Notification,
   sequelize,
 } = require('../models');
 const { signAccessToken, signRefreshToken } = require('../services/token.service');
 const { resolveEffectivePermissions } = require('../services/permissionResolver.service');
+const { createInternalNotification } = require('../services/email.service');
 const { ok, paginated, notFound, badRequest } = require('../utils/response.util');
 const { AppError } = require('../middlewares/errorHandler.middleware');
 const { auditManual } = require('../middlewares/audit.middleware');
@@ -132,11 +132,11 @@ async function requestAccountAccess(req, res, next) {
 
     if (!targetUser) return notFound(res, 'Utilisateur cible');
 
-    const notif = await Notification.create({
+    const notif = await createInternalNotification({
       id_user: targetUser.id_user,
       type_notification: 'information',
       message: `Demande d'acces au compte par ${actor?.prenom || 'Admin'} ${actor?.nom || ''}. Justification: ${justification}`,
-      lu: false,
+      created_by_user_id: req.user.id_user,
     });
 
     await auditManual(req, 'REQUEST_IMPERSONATION', 'notifications', {
@@ -188,11 +188,11 @@ async function forceAccountAccess(req, res, next) {
     });
     const refreshToken = signRefreshToken(targetUser);
 
-    await Notification.create({
+    await createInternalNotification({
       id_user: targetUser.id_user,
       type_notification: 'information',
       message: `Acces force a votre compte par un administrateur. Justification: ${justification}`,
-      lu: false,
+      created_by_user_id: req.user.id_user,
     });
 
     await auditManual(req, 'FORCE_IMPERSONATION', 'utilisateurs', {

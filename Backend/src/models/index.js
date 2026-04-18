@@ -117,9 +117,14 @@ RendezVous.belongsTo(Disponibilite,{ foreignKey: 'id_dispo',   as: 'disponibilit
 // ── 9. Notifications ──────────────────────────────────────────────────────────
 
 Utilisateur.hasMany(Notification, { foreignKey: 'id_user', as: 'notifications', onDelete: 'CASCADE' });
+Utilisateur.hasMany(Notification, { foreignKey: 'recipient_user_id', as: 'notifications_recues_admin' });
+Utilisateur.hasMany(Notification, { foreignKey: 'created_by_user_id', as: 'notifications_emises' });
 RendezVous.hasMany(Notification,  { foreignKey: 'id_rdv',  as: 'notifications', onDelete: 'SET NULL' });
 Notification.belongsTo(Utilisateur,{ foreignKey: 'id_user', as: 'utilisateur' });
 Notification.belongsTo(RendezVous, { foreignKey: 'id_rdv',  as: 'rendez_vous' });
+Notification.belongsTo(Utilisateur, { foreignKey: 'recipient_user_id', as: 'recipient_user' });
+Notification.belongsTo(Utilisateur, { foreignKey: 'created_by_user_id', as: 'created_by_user' });
+Notification.belongsTo(Notification, { foreignKey: 'source_notification_id', as: 'source_notification' });
 
 // ── 10. AuditLog → Utilisateur ────────────────────────────────────────────────
 

@@ -80,10 +80,50 @@ async function ensureAuditLogTriggers() {
   console.log('[DB] Triggers audit_logs verifies/repares');
 }
 
+async function ensureRendezVousArchiveColumns() {
+  const statements = [
+    `
+      ALTER TABLE rendez_vous
+      ADD COLUMN IF NOT EXISTS date_archivage DATETIME NULL AFTER date_enregistrement
+    `,
+  ];
+
+  for (const statement of statements) {
+    await sequelize.query(statement);
+  }
+
+  console.log('[DB] Colonne date_archivage verifiee sur rendez_vous');
+}
+
+async function ensureNotificationColumns() {
+  const statements = [
+    `
+      ALTER TABLE notifications
+      ADD COLUMN IF NOT EXISTS source_notification_id INT NULL AFTER id_user
+    `,
+    `
+      ALTER TABLE notifications
+      ADD COLUMN IF NOT EXISTS recipient_user_id INT NULL AFTER source_notification_id
+    `,
+    `
+      ALTER TABLE notifications
+      ADD COLUMN IF NOT EXISTS created_by_user_id INT NULL AFTER recipient_user_id
+    `,
+  ];
+
+  for (const statement of statements) {
+    await sequelize.query(statement);
+  }
+
+  console.log('[DB] Colonnes additionnelles verifiees sur notifications');
+}
+
 async function connectDB() {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       await sequelize.authenticate();
+      await ensureRendezVousArchiveColumns();
+      await ensureNotificationColumns();
       await ensureAuditLogTriggers();
       console.log(`[DB] Connecte a ${db.name} sur ${db.host}:${db.port}`);
       return;
@@ -108,6 +148,8 @@ async function syncDB({ force = false, alter = false } = {}) {
   require('../models');
 
   await sequelize.sync({ force, alter });
+  await ensureRendezVousArchiveColumns();
+  await ensureNotificationColumns();
   await ensureAuditLogTriggers();
   console.log(`[DB] Sync termine (force=${force}, alter=${alter})`);
 }

@@ -6,7 +6,9 @@ const { ok, created, paginated, notFound } = require('../utils/response.util');
 const { AppError } = require('../middlewares/errorHandler.middleware');
 const { auditManual } = require('../middlewares/audit.middleware');
 const notificationService = require('../services/notification.service');
+const { notifyUsersAndAdmins } = require('../services/email.service');
 const { STATUT_RDV, STATUT_JOB, TYPE_TACHE } = require('../utils/constants.util');
+const ARCHIVE_VISIBILITY_DAYS = 10;
 
 async function getSecretaryServiceIds(userId) {
   const secretary = await Secretaire.findByPk(userId, {
@@ -35,6 +37,56 @@ async function assertSecretaryCanAccessRdv(req, rdv) {
   if (!dispo || !serviceIds.includes(dispo.id_service)) {
     throw new AppError('Ce rendez-vous est hors de votre perimetre de service.', 403, 'SECRETARY_OUT_OF_SCOPE');
   }
+}
+
+async function getRelatedCancellationUserIds(rdv) {
+  const ids = [rdv.id_patient, rdv.id_medecin].filter(Boolean);
+  const serviceId = rdv.disponibilite?.id_service;
+
+  if (!serviceId) return [...new Set(ids)];
+
+  const [directSecretaries, linkedSecretaries] = await Promise.all([
+    Secretaire.findAll({
+      attributes: ['id_user'],
+      where: { id_service_affecte: serviceId },
+    }),
+    Secretaire.findAll({
+      attributes: ['id_user'],
+      include: [{
+        model: Service,
+        as: 'services_affectes',
+        attributes: [],
+        through: { attributes: [] },
+        where: { id_service: serviceId },
+        required: true,
+      }],
+    }),
+  ]);
+
+  directSecretaries.forEach((secretary) => ids.push(secretary.id_user));
+  linkedSecretaries.forEach((secretary) => ids.push(secretary.id_user));
+
+  return [...new Set(ids.filter(Boolean))];
+}
+
+async function notifyCancellationStakeholders(req, rdv, justification) {
+  const recipientIds = await getRelatedCancellationUserIds(rdv);
+  const patientName = `${rdv.patient?.utilisateur?.prenom || ''} ${rdv.patient?.utilisateur?.nom || ''}`.trim() || 'Patient';
+  const medecinName = `${rdv.medecin?.utilisateur?.prenom || ''} ${rdv.medecin?.utilisateur?.nom || ''}`.trim() || 'Medecin';
+  const message = [
+    `Rendez-vous #${rdv.id_rdv} annule.`,
+    `Patient: ${patientName}.`,
+    `Medecin: ${medecinName}.`,
+    `Justification: ${justification}.`,
+  ].join(' ');
+
+  await notifyUsersAndAdmins({
+    userIds: recipientIds,
+    id_rdv: rdv.id_rdv,
+    type_notification: 'information',
+    message,
+    created_by_user_id: req.user.id_user,
+  });
 }
 
 async function getAll(req, res, next) {
@@ -92,6 +144,70 @@ async function getAll(req, res, next) {
   } catch (err) { next(err); }
 }
 
+function buildArchiveVisibilityWhere(req) {
+  if (req.user.type_user === 'administrateur') {
+    return {};
+  }
+
+  const visibleSince = new Date();
+  visibleSince.setDate(visibleSince.getDate() - ARCHIVE_VISIBILITY_DAYS);
+  return {
+    date_archivage: { [Op.gte]: visibleSince },
+  };
+}
+
+async function getArchives(req, res, next) {
+  try {
+    const { page = 1, limit = 20, id_medecin, id_patient } = req.query;
+    const where = {
+      statut_rdv: STATUT_RDV.ARCHIVE,
+      ...buildArchiveVisibilityWhere(req),
+    };
+
+    if (req.user.type_user === 'patient') {
+      where.id_patient = req.user.id_user;
+    } else if (req.user.type_user === 'medecin') {
+      where.id_medecin = req.user.id_user;
+    } else {
+      if (id_patient) where.id_patient = id_patient;
+      if (id_medecin) where.id_medecin = id_medecin;
+    }
+
+    if (req.user.type_user === 'secretaire') {
+      const serviceIds = await getSecretaryServiceIds(req.user.id_user);
+      if (serviceIds.length === 0) {
+        return paginated(res, [], 0, page, limit);
+      }
+
+      const disponibilites = await Disponibilite.findAll({
+        attributes: ['id_dispo'],
+        where: { id_service: { [Op.in]: serviceIds } },
+      });
+
+      const dispoIds = disponibilites.map((dispo) => dispo.id_dispo);
+      if (dispoIds.length === 0) {
+        return paginated(res, [], 0, page, limit);
+      }
+
+      where.id_dispo = { [Op.in]: dispoIds };
+    }
+
+    const { count, rows } = await RendezVous.findAndCountAll({
+      where,
+      include: [
+        { model: Patient, as: 'patient', include: [{ model: Utilisateur, as: 'utilisateur', attributes: ['id_user', 'nom', 'prenom', 'email'] }] },
+        { model: Medecin, as: 'medecin', include: [{ model: Utilisateur, as: 'utilisateur', attributes: ['id_user', 'nom', 'prenom'] }] },
+        { model: Disponibilite, as: 'disponibilite', attributes: ['id_dispo', 'date_heure_debut', 'date_heure_fin', 'id_service'] },
+      ],
+      order: [['date_archivage', 'DESC'], ['date_heure_rdv', 'DESC']],
+      limit: parseInt(limit, 10),
+      offset: (page - 1) * limit,
+    });
+
+    return paginated(res, rows, count, page, limit);
+  } catch (err) { next(err); }
+}
+
 async function getOne(req, res, next) {
   try {
     const rdv = await RendezVous.findByPk(req.params.id_rdv, {
@@ -117,14 +233,14 @@ async function create(req, res, next) {
 
     const rdv = await RendezVous.create({
       id_dispo,
-      id_medecin,
+      id_medecin: id_medecin || dispo.id_medecin,
       id_patient: req.user.id_user,
-      date_heure_rdv,
+      date_heure_rdv: date_heure_rdv || dispo.date_heure_debut,
       motif,
       statut_rdv: STATUT_RDV.EN_ATTENTE,
     });
 
-    const dateRappel = new Date(date_heure_rdv);
+    const dateRappel = new Date(date_heure_rdv || dispo.date_heure_debut);
     dateRappel.setHours(dateRappel.getHours() - 24);
     await SystemJob.create({
       type_tache: TYPE_TACHE.ENVOYER_RAPPEL,
@@ -174,6 +290,9 @@ async function updateStatut(req, res, next) {
 
     const updateData = { statut_rdv };
     if (motif_refus) updateData.motif = motif_refus;
+    if (statut_rdv === STATUT_RDV.ARCHIVE) {
+      updateData.date_archivage = new Date();
+    }
     await rdv.update(updateData);
 
     if (statut_rdv === STATUT_RDV.CONFIRME) {
@@ -192,8 +311,15 @@ async function updateStatut(req, res, next) {
 
 async function cancel(req, res, next) {
   try {
-    const rdv = await RendezVous.findByPk(req.params.id_rdv);
+    const rdv = await RendezVous.findByPk(req.params.id_rdv, {
+      include: [
+        { model: Patient, as: 'patient', include: [{ model: Utilisateur, as: 'utilisateur', attributes: ['id_user', 'nom', 'prenom', 'email'] }] },
+        { model: Medecin, as: 'medecin', include: [{ model: Utilisateur, as: 'utilisateur', attributes: ['id_user', 'nom', 'prenom'] }] },
+        { model: Disponibilite, as: 'disponibilite', attributes: ['id_dispo', 'id_service'] },
+      ],
+    });
     if (!rdv) return notFound(res, 'Rendez-vous');
+    const justification = String(req.body.justification || '').trim();
 
     if (rdv.id_patient !== req.user.id_user && req.user.type_user !== 'administrateur') {
       throw new AppError('Vous ne pouvez annuler que vos propres rendez-vous.', 403, 'FORBIDDEN');
@@ -201,12 +327,45 @@ async function cancel(req, res, next) {
     if ([STATUT_RDV.ARCHIVE, STATUT_RDV.ANNULE].includes(rdv.statut_rdv)) {
       throw new AppError('Ce rendez-vous ne peut plus etre annule.', 409, 'CANNOT_CANCEL');
     }
+    if (!justification) {
+      throw new AppError("Une justification d'annulation est requise.", 400, 'CANCELLATION_JUSTIFICATION_REQUIRED');
+    }
 
     await rdv.update({ statut_rdv: STATUT_RDV.ANNULE });
-    await notificationService.logRdvCancellation(req, rdv.id_rdv, req.user.type_user, 'Annulation par le patient');
-    await auditManual(req, 'CANCEL_RDV', 'rendez_vous', { id_rdv: rdv.id_rdv });
+    await notificationService.logRdvCancellation(req, rdv.id_rdv, req.user.type_user, justification);
+    await notifyCancellationStakeholders(req, rdv, justification);
+    await auditManual(req, 'CANCEL_RDV', 'rendez_vous', { id_rdv: rdv.id_rdv, justification });
     return ok(res, null, 'Rendez-vous annule.');
   } catch (err) { next(err); }
 }
 
-module.exports = { getAll, getOne, create, updateStatut, cancel };
+async function resetArchiveDelay(req, res, next) {
+  try {
+    const rdv = await RendezVous.findByPk(req.params.id_rdv);
+    if (!rdv) return notFound(res, 'Rendez-vous');
+    if (rdv.statut_rdv !== STATUT_RDV.ARCHIVE) {
+      throw new AppError('Seuls les rendez-vous archives peuvent etre reaffiches.', 409, 'RDV_NOT_ARCHIVED');
+    }
+
+    await rdv.update({ date_archivage: new Date() });
+    await auditManual(req, 'RESET_ARCHIVE_RDV', 'rendez_vous', { id_rdv: rdv.id_rdv });
+    return ok(res, { id_rdv: rdv.id_rdv, date_archivage: rdv.date_archivage }, 'Delai d archive reinitialise.');
+  } catch (err) { next(err); }
+}
+
+async function removePermanent(req, res, next) {
+  try {
+    const rdv = await RendezVous.findByPk(req.params.id_rdv);
+    if (!rdv) return notFound(res, 'Rendez-vous');
+    if (rdv.statut_rdv !== STATUT_RDV.ARCHIVE) {
+      throw new AppError('La suppression definitive est reservee aux rendez-vous archives.', 409, 'RDV_NOT_ARCHIVED');
+    }
+
+    const id_rdv = rdv.id_rdv;
+    await rdv.destroy();
+    await auditManual(req, 'DELETE_ARCHIVE_RDV', 'rendez_vous', { id_rdv });
+    return ok(res, null, 'Rendez-vous archive supprime definitivement.');
+  } catch (err) { next(err); }
+}
+
+module.exports = { getAll, getArchives, getOne, create, updateStatut, cancel, resetArchiveDelay, removePermanent };

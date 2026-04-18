@@ -9,6 +9,7 @@ import { Toast } from '../../components/ui/AppAlert';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { PdfExportButton } from '../../components/ui/PdfExportButton';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import { useAuth } from '../../store/AuthContext';
 import { useNotifContext } from '../../store/NotifContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
@@ -19,6 +20,7 @@ const PAGE_SIZE = 10;
 
 export function NotificationsScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const { fetchUnread, isActiveSession } = useNotifContext();
   const [items, setItems] = useState<Notification[]>([]);
   const [page, setPage] = useState(1);
@@ -51,11 +53,21 @@ export function NotificationsScreen({ navigation }: any) {
     try {
       await notificationsApi.markAsRead(id);
       await Promise.all([fetchNotifications(page), fetchUnread()]);
-      Toast.success('Notification', 'Marquée comme lue.');
+      Toast.success('Notification', 'Marquee comme lue.');
     } catch {
       Toast.error('Erreur', 'Impossible de marquer la notification comme lue.');
     }
   }, [fetchNotifications, fetchUnread, page]);
+
+  const markRecipientAsRead = useCallback(async (id: number) => {
+    try {
+      await notificationsApi.markRecipientAsRead(id);
+      await fetchNotifications(page);
+      Toast.success('Notification', "Marquee comme lue pour l'utilisateur.");
+    } catch {
+      Toast.error('Erreur', "Impossible de marquer la notification pour l'utilisateur.");
+    }
+  }, [fetchNotifications, page]);
 
   const deleteNotification = useCallback(async (id: number) => {
     try {
@@ -63,7 +75,7 @@ export function NotificationsScreen({ navigation }: any) {
       const nextLength = items.length - 1;
       const nextPage = nextLength === 0 && page > 1 ? page - 1 : page;
       await Promise.all([fetchNotifications(nextPage), fetchUnread()]);
-      Toast.success('Notification', 'Notification archivée.');
+      Toast.success('Notification', 'Notification archivee.');
     } catch {
       Toast.error('Erreur', 'Archivage impossible.');
     }
@@ -73,7 +85,7 @@ export function NotificationsScreen({ navigation }: any) {
     try {
       await notificationsApi.markAllRead();
       await Promise.all([fetchNotifications(1), fetchUnread()]);
-      Toast.success('Succès', 'Toutes les notifications sont marquées comme lues.');
+      Toast.success('Succes', 'Toutes les notifications sont marquees comme lues.');
     } catch {
       Toast.error('Erreur', 'Action impossible.');
     }
@@ -98,17 +110,24 @@ export function NotificationsScreen({ navigation }: any) {
       { key: 'date', label: 'Date', value: (n: Notification) => n.date_envoi },
       { key: 'type', label: 'Type', value: (n: Notification) => n.type_notification },
       { key: 'lu', label: 'Lu', value: (n: Notification) => (n.lu ? 'Oui' : 'Non') },
+      { key: 'destinataire', label: 'Destinataire', value: (n: Notification) => `${n.recipient_user?.prenom || ''} ${n.recipient_user?.nom || ''}`.trim() || '-' },
       { key: 'message', label: 'Message', value: (n: Notification) => n.message },
     ],
     []
   );
+
+  const subtitle = user?.type_user === 'administrateur'
+    ? 'Vue admin avec destinataires et lecture independante'
+    : isActiveSession
+      ? 'Synchronisees avec votre compte actif'
+      : 'En attente de reprise de session';
 
   const header = useMemo(
     () => (
       <>
         <AppHeader
           title="Notifications"
-          subtitle={isActiveSession ? 'Synchronisées avec votre compte actif' : 'En attente de reprise de session'}
+          subtitle={subtitle}
           onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
           rightActions={
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -131,13 +150,13 @@ export function NotificationsScreen({ navigation }: any) {
           >
             <Text style={{ color: colors.text, fontWeight: '700' }}>Notifications en pause</Text>
             <Text style={{ color: colors.textMuted, marginTop: 6 }}>
-              Les notifications ne se rechargent que lorsque l’utilisateur concerné est connecté et actif.
+              Les notifications ne se rechargent que lorsque l'utilisateur concerne est connecte et actif.
             </Text>
           </View>
         ) : null}
       </>
     ),
-    [colors.text, colors.textMuted, colors.warning, isActiveSession, items, markAllAsRead, navigation, pdfColumns]
+    [colors.text, colors.textMuted, colors.warning, isActiveSession, items, markAllAsRead, navigation, pdfColumns, subtitle]
   );
 
   const footer = useMemo(
@@ -168,6 +187,7 @@ export function NotificationsScreen({ navigation }: any) {
             if (!n.lu) markAsRead(n.id_notif);
           }}
           onMarkRead={markAsRead}
+          onMarkRecipientRead={user?.type_user === 'administrateur' ? markRecipientAsRead : undefined}
           onDelete={deleteNotification}
         />
       </Animated.View>

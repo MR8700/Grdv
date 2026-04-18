@@ -5,21 +5,15 @@ import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { PatientCard } from '../../components/rdv/PatientCard';
 import { AppInput } from '../../components/ui/AppInput';
 import { AppPagination } from '../../components/shared/AppPagination';
-import { AppButton } from '../../components/ui/AppButton';
-import { Toast } from '../../components/ui/AppAlert';
 import { AppEmpty } from '../../components/ui/AppEmpty';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppLoader } from '../../components/ui/AppLoader';
-import { useAppSettings } from '../../store/AppSettingsContext';
 import { useTheme } from '../../store/ThemeContext';
 import { PaginatedResponse } from '../../types/api.types';
 import { Patient } from '../../types/models.types';
-import { exportToPdfAndShare, getPdfExportErrorMessage } from '../../utils/pdfExport';
 
 export function PatientsScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
-  const { currentRole, rolePreferences } = useAppSettings();
-  const exportAllowed = rolePreferences[currentRole]?.exportEnabled !== false;
   const [items, setItems] = useState<Patient[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -59,27 +53,6 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
     });
   }, [items, search]);
 
-  const exportFiltered = useCallback(async () => {
-    try {
-      await exportToPdfAndShare({
-        title: 'Export patients secretaire',
-        rows: filteredItems,
-        filters: { Page: page, Recherche: search || 'Aucune' },
-        columns: [
-          { key: 'id', label: 'ID', value: (p) => p.id_user },
-          { key: 'nom', label: 'Nom', value: (p) => p.utilisateur?.nom || '' },
-          { key: 'prenom', label: 'Prenom', value: (p) => p.utilisateur?.prenom || '' },
-          { key: 'email', label: 'Email', value: (p) => p.utilisateur?.email || '' },
-          { key: 'dossier', label: 'Dossier', value: (p) => p.id_dossier_medical || '' },
-          { key: 'groupe', label: 'Groupe sanguin', value: (p) => p.groupe_sanguin || '' },
-        ],
-      });
-      Toast.success('PDF pret', `${filteredItems.length} patient(s) exporte(s).`);
-    } catch (exportError) {
-      Toast.error('Export PDF impossible', getPdfExportErrorMessage(exportError));
-    }
-  }, [filteredItems, page, search]);
-
   useEffect(() => {
     fetchPatients(1);
   }, [fetchPatients]);
@@ -96,9 +69,6 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
           title="Patients"
           subtitle="Vue secretaire connectee a l'application"
           onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-          rightActions={
-            exportAllowed ? <AppButton label="Exporter PDF" size="sm" variant="outline" onPress={exportFiltered} /> : undefined
-          }
         />
 
         <AppInput label="Recherche patient" value={search} onChangeText={setSearch} placeholder="Nom, email ou dossier" />
@@ -106,7 +76,7 @@ export function PatientsScreen({ navigation }: { navigation?: any }) {
         {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
       </>
     ),
-    [colors.danger, error, exportAllowed, exportFiltered, navigation, search]
+    [colors.danger, error, navigation, search]
   );
 
   return (

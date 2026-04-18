@@ -21,4 +21,8 @@ const query = Joi.object({
   type_notification : Joi.string().valid(...Object.values(TYPE_NOTIFICATION)).optional(),
 });
 
-module.exports = { create, idParam, query };
+const markRecipientRead = Joi.object({
+  id_notif: Joi.number().integer().positive().required(),
+});
+
+module.exports = { create, idParam, query, markRecipientRead };

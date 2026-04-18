@@ -50,13 +50,17 @@ export const API_ENDPOINTS = {
   },
   appointments: {
     base: appointmentsBase,
+    archives: `${appointmentsBase}/archives`,
     one: (id: number) => `${appointmentsBase}/${id}`,
     statut: (id: number) => `${appointmentsBase}/${id}/statut`,
+    resetArchive: (id: number) => `${appointmentsBase}/${id}/archive/reset`,
+    permanentDelete: (id: number) => `${appointmentsBase}/${id}/archive/permanent`,
   },
   notifications: {
     base: notificationsBase,
     one: (id: number) => `${notificationsBase}/${id}`,
     markRead: (id: number) => `${notificationsBase}/${id}/lu`,
+    markRecipientRead: (id: number) => `${notificationsBase}/${id}/lu-utilisateur`,
     markAllRead: `${notificationsBase}/lu-tout`,
     delete: (id: number) => `${notificationsBase}/${id}`,
   },

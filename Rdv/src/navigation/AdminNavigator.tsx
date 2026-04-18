@@ -7,6 +7,7 @@ import { ActorDrawerNavigator } from './ActorDrawerNavigator';
 import { RoleTabItem, RoleTabNavigator } from './RoleTabNavigator';
 
 import { DashboardScreen } from '../screens/admin/DashboardScreen';
+import { RendezVousAdminScreen } from '../screens/admin/RendezVousAdminScreen';
 import { NotificationsScreen } from '../screens/shared/NotificationsScreen';
 import { UtilisateursScreen } from '../screens/admin/UtilisateursScreen';
 import { UtilisateurDetailScreen } from '../screens/admin/UtilisateurDetailScreen';
@@ -15,6 +16,7 @@ import { ServicesScreen } from '../screens/admin/ServicesScreen';
 import { CliniqueScreen } from '../screens/admin/CliniqueScreen';
 import { AuditLogsScreen } from '../screens/admin/AuditLogsScreen';
 import { SystemJobsScreen } from '../screens/admin/SystemJobsScreen';
+import { ArchivesRdvScreen } from '../screens/shared/ArchivesRdvScreen';
 import { ProfilScreen } from '../screens/shared/ProfilScreen';
 import { ParametresScreen } from '../screens/shared/ParametresScreen';
 import { SynchronisationScreen } from '../screens/shared/SynchronisationScreen';
@@ -28,13 +30,15 @@ function AdminTabs() {
     { key: 'Utilisateurs', title: 'Utilisateurs', icon: 'people', component: UtilisateursScreen, visible: true },
     { key: 'Notifications', title: 'Notifications', icon: 'notifications', component: NotificationsScreen, badge: unreadCount, visible: true },
     { key: 'Services', title: 'Services', icon: 'medkit', component: ServicesScreen, visible: true },
+    { key: 'RendezVousAdmin', title: 'RDV', icon: 'calendar', component: RendezVousAdminScreen, hidden: true },
+    { key: 'Archives', title: 'Archives', icon: 'archive', component: ArchivesRdvScreen, hidden: true },
     { key: 'SystemJobs', title: 'Jobs', icon: 'construct', component: SystemJobsScreen, hidden: true },
     { key: 'Permissions', title: 'Permissions', icon: 'shield', component: PermissionsScreen, hidden: true },
     { key: 'Clinique', title: 'Clinique', icon: 'business', component: CliniqueScreen, hidden: true },
     { key: 'AuditLogs', title: 'Audit', icon: 'clipboard', component: AuditLogsScreen, hidden: true },
     { key: 'Profil', title: 'Profil', icon: 'person', component: ProfilScreen, hidden: true },
     { key: 'Synchronisation', title: 'Synchro', icon: 'construct', component: SynchronisationScreen, hidden: true },
-    { key: 'Parametres', title: 'Réglages', icon: 'construct', component: ParametresScreen, hidden: true },
+    { key: 'Parametres', title: 'Reglages', icon: 'construct', component: ParametresScreen, hidden: true },
   ], [unreadCount]);
 
   return <RoleTabNavigator items={items} />;
@@ -51,16 +55,18 @@ function AdminDrawer() {
   const items = useMemo<DrawerMenuItem[]>(
     () => [
       { key: 'Dashboard', label: 'Tableau de bord', icon: 'grid-outline', visible: true },
+      { key: 'RendezVousAdmin', label: 'Rendez-vous', icon: 'calendar-outline', visible: true },
       { key: 'Utilisateurs', label: 'Utilisateurs', icon: 'people-outline', visible: canAccess('voir_utilisateurs') },
+      { key: 'Archives', label: 'Archives', icon: 'archive-outline', visible: true },
       { key: 'Permissions', label: 'Permissions', icon: 'shield-outline', visible: canAccess('attribuer_permissions') },
       { key: 'Services', label: 'Services', icon: 'medkit-outline', visible: canAccess('gerer_services') },
       { key: 'Clinique', label: 'Clinique', icon: 'business-outline', visible: canAccess('gerer_clinique') },
       { key: 'AuditLogs', label: 'Audit production', icon: 'document-text-outline', visible: canAccess('voir_audit_logs') },
-      { key: 'SystemJobs', label: 'Jobs système', icon: 'construct-outline', visible: true },
+      { key: 'SystemJobs', label: 'Jobs systeme', icon: 'construct-outline', visible: true },
       { key: 'Notifications', label: 'Notifications', icon: 'notifications-outline', badge: unreadCount, visible: true },
       { key: 'Profil', label: 'Mon profil', icon: 'person-outline', visible: true },
       { key: 'Synchronisation', label: 'Synchronisation', icon: 'sync-outline', visible: true },
-      { key: 'Parametres', label: 'Paramètres', icon: 'settings-outline', visible: true },
+      { key: 'Parametres', label: 'Parametres', icon: 'settings-outline', visible: true },
     ],
     [canAccess, unreadCount]
   );

@@ -8,6 +8,9 @@ export const notificationsApi = {
   markAsRead: (id: number) =>
     client.patch(API_ENDPOINTS.notifications.markRead(id)),
 
+  markRecipientAsRead: (id: number) =>
+    client.patch(API_ENDPOINTS.notifications.markRecipientRead(id)),
+
   markAllRead: () =>
     client.patch(API_ENDPOINTS.notifications.markAllRead),
 

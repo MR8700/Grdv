@@ -14,6 +14,24 @@ const Notification = sequelize.define('Notification', {
     references : { model: 'utilisateurs', key: 'id_user' },
     onDelete   : 'CASCADE',
   },
+  source_notification_id: {
+    type       : DataTypes.INTEGER,
+    allowNull  : true,
+    references : { model: 'notifications', key: 'id_notif' },
+    onDelete   : 'SET NULL',
+  },
+  recipient_user_id: {
+    type       : DataTypes.INTEGER,
+    allowNull  : true,
+    references : { model: 'utilisateurs', key: 'id_user' },
+    onDelete   : 'SET NULL',
+  },
+  created_by_user_id: {
+    type       : DataTypes.INTEGER,
+    allowNull  : true,
+    references : { model: 'utilisateurs', key: 'id_user' },
+    onDelete   : 'SET NULL',
+  },
   id_rdv: {
     type       : DataTypes.INTEGER,
     allowNull  : true,
