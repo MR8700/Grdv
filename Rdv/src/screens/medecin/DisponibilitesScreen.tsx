@@ -30,12 +30,12 @@ const buildIsoDateTime = (date: string, time: string) => {
 
 export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, hasPermission, permissions } = useAuth();
   const isSecretary = user?.type_user === 'secretaire';
   const [items, setItems] = useState<Disponibilite[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [medecins, setMedecins] = useState<Medecin[]>([]);
-  const [selectedMedecinId, setSelectedMedecinId] = useState<string>(user?.id_user ? String(user.id_user) : '');
+  const [selectedMedecinId, setSelectedMedecinId] = useState<string>(isSecretary ? '' : user?.id_user ? String(user.id_user) : '');
   const [serviceId, setServiceId] = useState<string>('all');
   const [createServiceId, setCreateServiceId] = useState<string>('all');
   const [dateValue, setDateValue] = useState(getToday());
@@ -49,21 +49,30 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const effectiveMedecinId = selectedMedecinId || (user?.id_user ? String(user.id_user) : '');
+  const canAccess = useCallback(
+    (permission: string) => permissions.length === 0 || hasPermission(permission),
+    [hasPermission, permissions]
+  );
+  const canViewDisponibilites = !isSecretary || canAccess('voir_disponibilites') || canAccess('gerer_planning');
+  const canManageDisponibilites = !isSecretary || canAccess('gerer_planning');
+  const effectiveMedecinId = isSecretary ? selectedMedecinId : user?.id_user ? String(user.id_user) : '';
 
   const fetchDisponibilites = useCallback(async () => {
-    if (!user || !effectiveMedecinId) return;
+    if (!user) return;
 
     try {
       setLoading(true);
       setError(null);
-      const dispoRequest = dispoApi.getAll({
-        id_medecin: effectiveMedecinId,
-        id_service: serviceId === 'all' ? undefined : serviceId,
-        limit: 50,
-      });
       const servicesRequest = servicesApi.getAll({ limit: 50 });
       const medecinsRequest = isSecretary ? medecinsApi.getAll({ limit: 50, delegated_only: true }) : null;
+      const dispoRequest =
+        canViewDisponibilites && effectiveMedecinId
+          ? dispoApi.getAll({
+              id_medecin: effectiveMedecinId,
+              id_service: serviceId === 'all' ? undefined : serviceId,
+              limit: 50,
+            })
+          : Promise.resolve({ data: { data: [] } });
 
       const [dispoResponse, servicesResponse, medecinsResponse] = await Promise.all([
         dispoRequest,
@@ -80,8 +89,10 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
         const doctorsPayload = medecinsResponse.data as PaginatedResponse<Medecin>;
         const doctorRows = doctorsPayload.data || [];
         setMedecins(doctorRows);
-        if (!selectedMedecinId && doctorRows[0]) {
+        if (doctorRows.length > 0 && !doctorRows.some((item) => String(item.id_user) === selectedMedecinId)) {
           setSelectedMedecinId(String(doctorRows[0].id_user));
+        } else if (doctorRows.length === 0) {
+          setSelectedMedecinId('');
         }
       }
     } catch (err: any) {
@@ -89,10 +100,10 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
     } finally {
       setLoading(false);
     }
-  }, [effectiveMedecinId, isSecretary, selectedMedecinId, serviceId, user]);
+  }, [canViewDisponibilites, effectiveMedecinId, isSecretary, selectedMedecinId, serviceId, user]);
 
   const createDisponibilite = useCallback(async () => {
-    if (!user || !effectiveMedecinId) return;
+    if (!user || !effectiveMedecinId || !canManageDisponibilites) return;
 
     const date_heure_debut = buildIsoDateTime(dateValue, startTime);
     const date_heure_fin = buildIsoDateTime(dateValue, endTime);
@@ -135,9 +146,10 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
     } finally {
       setSaving(false);
     }
-  }, [capacityValue, createServiceId, dateValue, effectiveMedecinId, endTime, fetchDisponibilites, startTime, user]);
+  }, [canManageDisponibilites, capacityValue, createServiceId, dateValue, effectiveMedecinId, endTime, fetchDisponibilites, startTime, user]);
 
   const removeDisponibilite = useCallback(async (id_dispo: number) => {
+    if (!canManageDisponibilites) return;
     try {
       setBusyDeleteId(id_dispo);
       setError(null);
@@ -149,7 +161,7 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
     } finally {
       setBusyDeleteId(null);
     }
-  }, [fetchDisponibilites]);
+  }, [canManageDisponibilites, fetchDisponibilites]);
 
   React.useEffect(() => {
     if (user?.id_user && !isSecretary) {
@@ -161,7 +173,7 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
     fetchDisponibilites();
   }, [fetchDisponibilites]);
 
-  useAutoRefresh(fetchDisponibilites, REFRESH_INTERVALS.DISPONIBILITES, !!user && !!effectiveMedecinId);
+  useAutoRefresh(fetchDisponibilites, REFRESH_INTERVALS.DISPONIBILITES, !!user && (!isSecretary || !!effectiveMedecinId));
 
   const stats = useMemo(() => {
     const libres = items.filter((item) => item.est_libre).length;
@@ -179,8 +191,10 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
 
   const medecinLabel = useMemo(() => {
     const selected = medecins.find((item) => String(item.id_user) === effectiveMedecinId);
-    return selected ? `${selected.utilisateur?.prenom || ''} ${selected.utilisateur?.nom || ''}`.trim() : '';
-  }, [effectiveMedecinId, medecins]);
+    if (selected) return `${selected.utilisateur?.prenom || ''} ${selected.utilisateur?.nom || ''}`.trim();
+    if (!isSecretary && user) return `${user.prenom || ''} ${user.nom || ''}`.trim();
+    return '';
+  }, [effectiveMedecinId, isSecretary, medecins, user]);
 
   return (
     <ScreenWrapper scroll onRefresh={fetchDisponibilites} refreshing={loading}>
@@ -188,7 +202,7 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
         title="Disponibilites"
         subtitle={isSecretary ? 'Creneaux des medecins delegues' : 'Vos creneaux et votre planning quotidien'}
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
-        rightActions={
+        rightActions={canViewDisponibilites ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <PdfExportButton
               title="Export de disponibilites"
@@ -199,6 +213,11 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
               }}
               columns={[
                 { key: 'id', label: 'ID', value: (d) => d.id_dispo },
+                {
+                  key: 'medecin',
+                  label: 'Medecin',
+                  value: (d) => `${d.medecin?.utilisateur?.prenom || ''} ${d.medecin?.utilisateur?.nom || ''}`.trim() || d.id_medecin,
+                },
                 { key: 'service', label: 'Service', value: (d) => d.service?.nom_service || '' },
                 { key: 'debut', label: 'Debut', value: (d) => formatDateTime(d.date_heure_debut) },
                 { key: 'fin', label: 'Fin', value: (d) => formatDateTime(d.date_heure_fin) },
@@ -209,16 +228,25 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
               label={showForm ? 'Fermer' : 'Nouveau'}
               size="sm"
               variant="ghost"
+              disabled={!canManageDisponibilites}
               onPress={() => setShowForm((current) => !current)}
             />
           </View>
-        }
+        ) : undefined}
       />
 
       <AppSnackbar visible={!!message} message={message ?? ''} variant="success" />
       {error && <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text>}
 
-      {isSecretary ? (
+      {!canViewDisponibilites ? (
+        <AppEmpty
+          title="Acces aux creneaux non autorise"
+          subtitle="Votre compte secretaire ne dispose pas encore des permissions pour consulter ou gerer le planning. Contactez le medecin delegant ou un administrateur."
+          onRetry={fetchDisponibilites}
+        />
+      ) : null}
+
+      {canViewDisponibilites && isSecretary ? (
         <AppDropdown
           label="Medecin"
           value={effectiveMedecinId}
@@ -230,6 +258,7 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
         />
       ) : null}
 
+      {canViewDisponibilites ? (
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 4 }}>
         <AppCard style={{ flex: 1 }}>
           <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 6 }}>Creneaux</Text>
@@ -244,7 +273,9 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
           <Text style={{ color: colors.warning, fontSize: 22, fontWeight: '800' }}>{stats.occupes}</Text>
         </AppCard>
       </View>
+      ) : null}
 
+      {canViewDisponibilites ? (
       <AppDropdown
         label="Filtrer par service"
         value={serviceId}
@@ -254,8 +285,9 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
           ...services.map((service) => ({ label: service.nom_service, value: String(service.id_service) })),
         ]}
       />
+      ) : null}
 
-      {showForm && (
+      {canManageDisponibilites && showForm && (
         <AppCard title="Ajouter un creneau" subtitle="Saisissez une date et une plage horaire">
           <AppDropdown
             label="Service"
@@ -295,9 +327,21 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
         </AppCard>
       )}
 
-      {loading && items.length === 0 ? (
+      {canViewDisponibilites && loading && items.length === 0 ? (
         <AppLoader message="Chargement des disponibilites..." />
-      ) : sortedItems.length === 0 ? (
+      ) : canViewDisponibilites && isSecretary && medecins.length === 0 ? (
+        <AppEmpty
+          title="Aucun medecin delegue"
+          subtitle="Aucun medecin disponible n'est rattache a votre delegation pour le moment."
+          onRetry={fetchDisponibilites}
+        />
+      ) : canViewDisponibilites && isSecretary && !effectiveMedecinId ? (
+        <AppEmpty
+          title="Selectionnez un medecin"
+          subtitle="Choisissez un medecin delegue pour consulter ses disponibilites."
+          onRetry={fetchDisponibilites}
+        />
+      ) : canViewDisponibilites && sortedItems.length === 0 ? (
         <AppEmpty
           title="Aucun creneau"
           subtitle={
@@ -307,7 +351,7 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
           }
           onRetry={fetchDisponibilites}
         />
-      ) : (
+      ) : canViewDisponibilites ? (
         sortedItems.map((item) => (
           <AppCard
             key={item.id_dispo}
@@ -315,23 +359,32 @@ export function DisponibilitesScreen({ navigation }: { navigation?: any }) {
             subtitle={formatDateTime(item.date_heure_debut)}
             style={{ marginBottom: 12 }}
           >
+            <Text style={{ color: colors.text, fontWeight: '700' }}>
+              Medecin disponible: {`${item.medecin?.utilisateur?.prenom || ''} ${item.medecin?.utilisateur?.nom || ''}`.trim() || medecinLabel || `#${item.id_medecin}`}
+            </Text>
             <Text style={{ color: colors.textMuted }}>Fin: {formatDateTime(item.date_heure_fin)}</Text>
             <Text style={{ color: colors.textMuted, marginTop: 4 }}>Capacite maximale: {item.capacite_max}</Text>
             <Text style={{ color: item.est_libre ? colors.success : colors.warning, marginTop: 6, fontWeight: '600' }}>
               {item.est_libre ? 'Disponible pour reservation' : 'Occupe ou deja reserve'}
             </Text>
-            <View style={{ marginTop: 12 }}>
-              <AppButton
-                label={busyDeleteId === item.id_dispo ? 'Suppression...' : 'Supprimer'}
-                variant="outline"
-                fullWidth
-                loading={busyDeleteId === item.id_dispo}
-                onPress={() => removeDisponibilite(item.id_dispo)}
-              />
-            </View>
+            {!canManageDisponibilites && isSecretary ? (
+              <Text style={{ color: colors.textMuted, marginTop: 10 }}>
+                Consultation autorisee uniquement. La modification des creneaux reste reservee au medecin ou a une delegation de planning.
+              </Text>
+            ) : (
+              <View style={{ marginTop: 12 }}>
+                <AppButton
+                  label={busyDeleteId === item.id_dispo ? 'Suppression...' : 'Supprimer'}
+                  variant="outline"
+                  fullWidth
+                  loading={busyDeleteId === item.id_dispo}
+                  onPress={() => removeDisponibilite(item.id_dispo)}
+                />
+              </View>
+            )}
           </AppCard>
         ))
-      )}
+      ) : null}
     </ScreenWrapper>
   );
 }

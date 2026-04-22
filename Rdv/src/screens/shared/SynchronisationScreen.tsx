@@ -1,5 +1,6 @@
 import React from 'react';
-import { Text, View, ScrollView, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { ScreenWrapper } from '../../components/layout/ScreenWrapper';
 import { AppHeader } from '../../components/ui/AppHeader';
 import { AppCard } from '../../components/ui/AppCard';
@@ -9,7 +10,6 @@ import { MediaOutbox, MediaOutboxItem } from '../../utils/mediaOutbox';
 import { flushPendingMutations, getPendingMutationsCount } from '../../utils/offlineSync';
 import { Toast } from '../../components/ui/AppAlert';
 import { PdfExportButton } from '../../components/ui/PdfExportButton';
-import { MaterialIcons } from 'react-native-vector-icons/MaterialIcons';
 
 export function SynchronisationScreen({ navigation }: { navigation?: any }) {
   const { colors } = useTheme();
@@ -30,7 +30,9 @@ export function SynchronisationScreen({ navigation }: { navigation?: any }) {
     }
   }, []);
 
-  React.useEffect(() => { refresh(); }, [refresh]);
+  React.useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const retryNow = React.useCallback(async () => {
     setSyncing(true);
@@ -39,16 +41,16 @@ export function SynchronisationScreen({ navigation }: { navigation?: any }) {
       await refresh();
 
       if (jsonSynced > 0 || mediaResult.synced > 0) {
-        Toast.success('Synchronisation', `${jsonSynced + mediaResult.synced} élément(s) envoyé(s).`);
+        Toast.success('Synchronisation', `${jsonSynced + mediaResult.synced} element(s) envoye(s).`);
       } else {
-        Toast.info('Synchronisation', 'Aucun élément envoyé pour le moment.');
+        Toast.info('Synchronisation', 'Aucun element envoye pour le moment.');
       }
 
       if (mediaResult.failed > 0) {
-        Toast.error('Media en échec', `${mediaResult.failed} media(s) en échec final.`);
+        Toast.error('Media en echec', `${mediaResult.failed} media(s) en echec final.`);
       }
     } catch {
-      Toast.error('Synchronisation', 'Échec de la relance manuelle.');
+      Toast.error('Synchronisation', 'Echec de la relance manuelle.');
     } finally {
       setSyncing(false);
     }
@@ -61,7 +63,7 @@ export function SynchronisationScreen({ navigation }: { navigation?: any }) {
     <ScreenWrapper scroll onRefresh={refresh} refreshing={loading} style={{ backgroundColor: colors.background }}>
       <AppHeader
         title="Synchronisation"
-        subtitle="Queue hors ligne & relance manuelle"
+        subtitle="Queue hors ligne et relance manuelle"
         onBack={navigation?.canGoBack() ? () => navigation.goBack() : undefined}
         rightActions={
           <PdfExportButton
@@ -71,7 +73,7 @@ export function SynchronisationScreen({ navigation }: { navigation?: any }) {
             columns={[
               { key: 'id', label: 'ID', value: (m) => m.id },
               { key: 'field', label: 'Champ', value: (m) => m.fieldName },
-              { key: 'entity', label: 'Entité', value: (m) => m.entityKey },
+              { key: 'entity', label: 'Entite', value: (m) => m.entityKey },
               { key: 'status', label: 'Statut', value: (m) => m.status },
               { key: 'endpoint', label: 'Endpoint', value: (m) => m.endpoint },
               { key: 'retries', label: 'Tentatives', value: (m) => m.retries },
@@ -80,8 +82,7 @@ export function SynchronisationScreen({ navigation }: { navigation?: any }) {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Résumé synchronisation */}
+      <View style={styles.container}>
         <AppCard style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={[styles.badge, { backgroundColor: colors.primary }]}>
@@ -94,17 +95,25 @@ export function SynchronisationScreen({ navigation }: { navigation?: any }) {
               <Text style={styles.badgeText}>{failedCount} Failed</Text>
             </View>
           </View>
-          <AppButton label={syncing ? 'Relance...' : 'Relancer maintenant'} loading={syncing} fullWidth onPress={retryNow} style={{ marginTop: 16 }} />
+          <AppButton
+            label={syncing ? 'Relance...' : 'Relancer maintenant'}
+            loading={syncing}
+            fullWidth
+            onPress={retryNow}
+            style={{ marginTop: 16 }}
+          />
         </AppCard>
 
-        {/* Queue Media */}
-        <AppCard title="Queue Media" subtitle="Photos / logos" style={styles.card}>
+        <AppCard title="Queue media" subtitle="Photos et logos" style={styles.card}>
           {mediaItems.length === 0 ? (
             <Text style={{ color: colors.textMuted }}>Aucun media en attente.</Text>
           ) : (
             <View style={{ gap: 12 }}>
               {mediaItems.map((item) => (
-                <View key={item.id} style={[styles.mediaItem, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                <View
+                  key={item.id}
+                  style={[styles.mediaItem, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+                >
                   <View style={styles.mediaHeader}>
                     <MaterialIcons
                       name={item.status === 'failed' ? 'error' : item.status === 'pending' ? 'schedule' : 'check-circle'}
@@ -112,28 +121,32 @@ export function SynchronisationScreen({ navigation }: { navigation?: any }) {
                       color={item.status === 'failed' ? colors.danger : item.status === 'pending' ? colors.warning : colors.success}
                       style={{ marginRight: 6 }}
                     />
-                    <Text style={[styles.mediaTitle, { color: colors.text }]}>{item.fieldName.toUpperCase()} - {item.entityKey}</Text>
+                    <Text style={[styles.mediaTitle, { color: colors.text }]}>
+                      {item.fieldName.toUpperCase()} - {item.entityKey}
+                    </Text>
                   </View>
                   <Text style={[styles.mediaText, { color: colors.textMuted }]}>Endpoint: {item.endpoint}</Text>
                   <Text style={[styles.mediaText, { color: colors.textMuted }]}>Tentatives: {item.retries}</Text>
-                  {item.errorMessage && <Text style={[styles.mediaText, { color: colors.danger }]}>Erreur: {item.errorMessage}</Text>}
+                  {item.errorMessage ? (
+                    <Text style={[styles.mediaText, { color: colors.danger }]}>Erreur: {item.errorMessage}</Text>
+                  ) : null}
                 </View>
               ))}
             </View>
           )}
         </AppCard>
-      </ScrollView>
+      </View>
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40 },
-  summaryCard: { borderRadius: 16, padding: 16, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  container: { padding: 16, paddingBottom: 40, gap: 20 },
+  summaryCard: { borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   badge: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
   badgeText: { fontWeight: '700', color: '#fff' },
-  card: { borderRadius: 16, padding: 16, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
+  card: { borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
   mediaItem: { borderWidth: 1, borderRadius: 12, padding: 12 },
   mediaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   mediaTitle: { fontWeight: '700', fontSize: 14 },

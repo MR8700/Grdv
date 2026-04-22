@@ -18,6 +18,8 @@ export function DispoSlot({ dispo, selected, onSelect }: DispoSlotProps) {
   const { colors } = useTheme();
   const scale = useSharedValue(1);
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const medecinLabel = `${dispo.medecin?.utilisateur?.prenom ?? ''} ${dispo.medecin?.utilisateur?.nom ?? ''}`.trim();
+  const serviceLabel = dispo.service?.nom_service?.trim();
 
   return (
     <AnimTouch
@@ -58,6 +60,18 @@ export function DispoSlot({ dispo, selected, onSelect }: DispoSlotProps) {
       <Text style={{ fontSize: 11, color: selected ? '#ffffffCC' : colors.textMuted, marginTop: 3 }}>
         vers {formatTime(dispo.date_heure_fin)}
       </Text>
+
+      {medecinLabel ? (
+        <Text style={{ fontSize: 11, color: selected ? '#ffffffD9' : colors.text, marginTop: 6, fontWeight: '600' }}>
+          Dr {medecinLabel}
+        </Text>
+      ) : null}
+
+      {serviceLabel ? (
+        <Text style={{ fontSize: 10, color: selected ? '#ffffffBF' : colors.textMuted, marginTop: 3 }}>
+          {serviceLabel}
+        </Text>
+      ) : null}
 
       {!dispo.est_libre && (
         <Text style={{ fontSize: 10, color: colors.danger, marginTop: 4, fontWeight: '700' }}>Complet</Text>

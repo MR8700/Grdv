@@ -86,6 +86,42 @@ function AppHeaderComponent({
   const handleProfilePress = React.useCallback(() => {
     if (!user) return;
     try {
+      let current = navigation;
+
+      while (current) {
+        const state = current.getState?.();
+        const routeNames: string[] = state?.routeNames ?? state?.routes?.map((route: any) => route.name) ?? [];
+
+        if (routeNames.includes('Profil')) {
+          current.navigate('Profil');
+          return;
+        }
+
+        if (routeNames.includes('AdminDrawer')) {
+          current.navigate('AdminDrawer', {
+            screen: 'AdminTabs',
+            params: { screen: 'Profil' },
+          });
+          return;
+        }
+
+        current = current.getParent?.();
+      }
+
+      const roleRoute =
+        user.type_user === 'patient'
+          ? 'PatientTabs'
+          : user.type_user === 'medecin'
+            ? 'MedecinTabs'
+            : user.type_user === 'secretaire'
+              ? 'SecretaireTabs'
+              : null;
+
+      if (roleRoute) {
+        navigation.navigate(roleRoute, { screen: 'Profil' });
+        return;
+      }
+
       navigation.navigate('Profil');
     } catch (error) {
       console.warn('Unable to open profile from header', error);

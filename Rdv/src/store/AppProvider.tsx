@@ -9,7 +9,7 @@ import { MediaOutbox } from '../utils/mediaOutbox';
 
 interface AppProviderProps {
   children: ReactNode;
-  syncIntervalMs?: number; // intervalle de sync en ms (défaut 2min)
+  syncIntervalMs?: number; // intervalle de sync en ms (defaut 2min)
 }
 
 export function AppProvider({ children, syncIntervalMs = 120000 }: AppProviderProps) {
@@ -24,20 +24,18 @@ export function AppProvider({ children, syncIntervalMs = 120000 }: AppProviderPr
       syncing.current = true;
 
       try {
-        // Synchronisation JSON
         const synced = await flushPendingMutations();
         if (isMounted.current && synced > 0) {
-          Toast.success('Synchronisation', `${synced} action(s) hors ligne envoyée(s) au backend.`);
+          Toast.success('Synchronisation', `${synced} action(s) hors ligne envoyee(s) au backend.`);
         }
 
-        // Synchronisation media
         const mediaResult = await MediaOutbox.flush();
         if (isMounted.current) {
           if (mediaResult.synced > 0) {
-            Toast.success('Photos synchronisées', `${mediaResult.synced} media(s) envoyé(s) au backend.`);
+            Toast.success('Photos synchronisees', `${mediaResult.synced} media(s) envoye(s) au backend.`);
           }
           if (mediaResult.failed > 0) {
-            Toast.error('Échec synchronisation media', `${mediaResult.failed} media(s) en échec.`);
+            Toast.error('Echec synchronisation media', `${mediaResult.failed} media(s) en echec.`);
           }
         }
       } catch (err) {
@@ -47,10 +45,7 @@ export function AppProvider({ children, syncIntervalMs = 120000 }: AppProviderPr
       }
     };
 
-    // Sync initial au démarrage
     sync();
-
-    // Sync périodique
     const interval = setInterval(sync, syncIntervalMs);
 
     return () => {

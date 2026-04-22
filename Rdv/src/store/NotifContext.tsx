@@ -46,7 +46,7 @@ export function NotifProvider({ children }: { children: ReactNode }) {
 
       if (hydratedRef.current && nextUnread > previousUnreadRef.current) {
         const delta = nextUnread - previousUnreadRef.current;
-        Toast.info('Nouvelle notification', `${delta} nouveau(x) message(s) reçu(s).`, 4500);
+        Toast.info('Nouvelle notification', `${delta} nouveau(x) message(s) recu(s).`, 4500);
       }
 
       hydratedRef.current = true;

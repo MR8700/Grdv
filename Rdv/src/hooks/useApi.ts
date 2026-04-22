@@ -2,9 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 interface PaginatedApiOptions<T> {
   pageSize?: number;
-  initialParams?: Record<string, any>;
-  autoRefresh?: number; // ms
-  fetcher: (params: Record<string, any>) => Promise<T[]>;
+  initialParams?: Record<string, unknown>;
+  autoRefresh?: number;
+  fetcher: (params: Record<string, unknown>) => Promise<T[]>;
 }
 
 export function usePaginatedApi<T>({
@@ -19,14 +19,33 @@ export function usePaginatedApi<T>({
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const paramsRef = useRef(initialParams);
+  const isMountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+  const loadingRef = useRef(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const loadPage = useCallback(
     async (pageToLoad: number, reset = false) => {
+      if (loadingRef.current && !reset) return;
+
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      loadingRef.current = true;
       setLoading(true);
       setError(null);
+
       try {
         const params = { ...paramsRef.current, page: pageToLoad, limit: pageSize };
         const data = await fetcher(params);
+
+        if (!isMountedRef.current || requestId !== requestIdRef.current) return;
+
         setItems((prev) => {
           if (reset) return data;
 
@@ -52,10 +71,16 @@ export function usePaginatedApi<T>({
         });
         setHasMore(data.length === pageSize);
         setPage(pageToLoad);
-      } catch (err: any) {
-        setError(err);
+      } catch (err: unknown) {
+        if (!isMountedRef.current || requestId !== requestIdRef.current) return;
+        setError(err instanceof Error ? err : new Error('Une erreur est survenue.'));
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) {
+          loadingRef.current = false;
+        }
+        if (isMountedRef.current && requestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [fetcher, pageSize]
@@ -64,18 +89,17 @@ export function usePaginatedApi<T>({
   const refresh = useCallback(() => loadPage(1, true), [loadPage]);
 
   const loadMore = useCallback(() => {
-    if (!loading && hasMore) loadPage(page + 1);
-  }, [loadPage, loading, hasMore, page]);
+    if (!loadingRef.current && hasMore) loadPage(page + 1);
+  }, [hasMore, loadPage, page]);
 
   const setParams = useCallback(
-    (newParams: Record<string, any>) => {
+    (newParams: Record<string, unknown>) => {
       paramsRef.current = { ...paramsRef.current, ...newParams };
       refresh();
     },
     [refresh]
   );
 
-  // Auto-refresh
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(refresh, autoRefresh);

@@ -34,7 +34,10 @@ export function HomePatientScreen({ navigation }: { navigation?: any }) {
         date_debut: new Date().toISOString(),
       });
       const payload = res.data as PaginatedResponse<RendezVous>;
-      setRdv(payload.data);
+      const sorted = [...(payload.data || [])].sort(
+        (a, b) => new Date(a.date_heure_rdv).getTime() - new Date(b.date_heure_rdv).getTime()
+      );
+      setRdv(sorted);
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Impossible de charger vos rendez-vous.');
     } finally {
@@ -47,6 +50,7 @@ export function HomePatientScreen({ navigation }: { navigation?: any }) {
   }, [fetchUpcoming]);
 
   const nextRdv = rdv[0] ?? null;
+  const nextRdvDoctor = `${nextRdv?.medecin?.utilisateur?.prenom || ''} ${nextRdv?.medecin?.utilisateur?.nom || ''}`.trim();
 
   return (
     <ScreenWrapper scroll onRefresh={fetchUpcoming} refreshing={loading}>
@@ -80,7 +84,7 @@ export function HomePatientScreen({ navigation }: { navigation?: any }) {
       >
         <Text style={{ color: colors.textMuted, lineHeight: 20 }}>
           {nextRdv
-            ? `Statut actuel: ${nextRdv.statut_rdv}. ${nextRdv.motif ? `Motif: ${nextRdv.motif}` : 'Consultez Mes RDV pour plus de details.'}`
+            ? `Statut actuel: ${nextRdv.statut_rdv}.${nextRdvDoctor ? ` Medecin: Dr ${nextRdvDoctor}.` : ''}${nextRdv.motif ? ` Motif: ${nextRdv.motif}` : ' Consultez Mes RDV pour plus de details.'}`
             : 'Accedez rapidement aux créneaux disponibles, à vos notifications et au suivi de vos demandes.'}
         </Text>
       </AppCard>

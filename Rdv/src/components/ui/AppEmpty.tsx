@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, Animated, Dimensions } from 'react-native';
 import { useTheme } from '../../store/ThemeContext';
 import { AppButton } from './AppButton';
+import { AppIcon } from './AppIcon';
 
 interface AppEmptyProps {
   title?: string;
@@ -11,11 +12,11 @@ interface AppEmptyProps {
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-export function AppEmpty({ title = 'Aucun résultat', subtitle, onRetry }: AppEmptyProps) {
+export function AppEmpty({ title = 'Aucun resultat', subtitle, onRetry }: AppEmptyProps) {
   const { colors } = useTheme();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(20)).current;
- 
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
@@ -35,23 +36,23 @@ export function AppEmpty({ title = 'Aucun résultat', subtitle, onRetry }: AppEm
         transform: [{ translateY }],
       }}
     >
-      {/* Icône moderne */}
-      <View style={{
-        width: SCREEN_W * 0.28,
-        height: SCREEN_W * 0.28,
-        borderRadius: SCREEN_W * 0.14,
-        backgroundColor: colors.surfaceAlt,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      }}>
-        <Text style={{ fontSize: SCREEN_W * 0.14 }}>🗂</Text>
+      <View
+        style={{
+          width: SCREEN_W * 0.28,
+          height: SCREEN_W * 0.28,
+          borderRadius: SCREEN_W * 0.14,
+          backgroundColor: colors.surfaceAlt,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+        }}
+      >
+        <AppIcon name="file-tray-outline" size={Math.round(SCREEN_W * 0.14)} color={colors.textMuted} />
       </View>
 
-      {/* Texte */}
       <Text
         style={{
           fontSize: 20,
@@ -63,7 +64,8 @@ export function AppEmpty({ title = 'Aucun résultat', subtitle, onRetry }: AppEm
       >
         {title}
       </Text>
-      {subtitle && (
+
+      {subtitle ? (
         <Text
           style={{
             fontSize: 15,
@@ -75,12 +77,11 @@ export function AppEmpty({ title = 'Aucun résultat', subtitle, onRetry }: AppEm
         >
           {subtitle}
         </Text>
-      )}
+      ) : null}
 
-      {/* Bouton retry */}
-      {onRetry && (
+      {onRetry ? (
         <AppButton
-          label="Réessayer"
+          label="Reessayer"
           onPress={onRetry}
           variant="outline"
           size="md"
@@ -94,7 +95,7 @@ export function AppEmpty({ title = 'Aucun résultat', subtitle, onRetry }: AppEm
             elevation: 3,
           }}
         />
-      )}
+      ) : null}
     </Animated.View>
   );
 }

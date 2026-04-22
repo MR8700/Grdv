@@ -128,14 +128,14 @@ export function NotificationsList({
 }: Props) {
   const renderItem = React.useCallback<ListRenderItem<AppNotification>>(
     ({ item }) => (
-        <NotificationItem
-          notification={item}
-          onPressItem={onPressItem}
-          onMarkRead={onMarkRead}
-          onMarkRecipientRead={onMarkRecipientRead}
-          onDelete={onDelete}
-        />
-      ),
+      <NotificationItem
+        notification={item}
+        onPressItem={onPressItem}
+        onMarkRead={onMarkRead}
+        onMarkRecipientRead={onMarkRecipientRead}
+        onDelete={onDelete}
+      />
+    ),
     [onDelete, onMarkRead, onMarkRecipientRead, onPressItem]
   );
 
@@ -148,7 +148,7 @@ export function NotificationsList({
       onRefresh={onRefresh}
       ListHeaderComponent={ListHeaderComponent}
       ListFooterComponent={ListFooterComponent}
-      ListEmptyComponent={<AppEmpty title="Aucune notification" subtitle="Rien à afficher." />}
+      ListEmptyComponent={<AppEmpty title="Aucune notification" subtitle="Rien a afficher." />}
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 126 }}
       keyboardShouldPersistTaps="handled"
       removeClippedSubviews

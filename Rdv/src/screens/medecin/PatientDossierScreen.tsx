@@ -16,14 +16,20 @@ import { formatDate, formatTime } from '../../utils/formatters';
 
 export function PatientDossierScreen({ navigation, route }: { navigation?: any; route?: any }) {
   const { colors } = useTheme();
-  const patientId = Number(route?.params?.id_patient);
+  const patientId = Number(route?.params?.id_patient ?? route?.params?.id_user);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchDossier = useCallback(async () => {
-    if (!patientId) return;
+    if (!Number.isFinite(patientId) || patientId <= 0) {
+      setPatient(null);
+      setRendezVous([]);
+      setError('Identifiant patient invalide.');
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -97,11 +103,11 @@ export function PatientDossierScreen({ navigation, route }: { navigation?: any; 
             <View style={{ gap: 8 }}>
               <Text style={{ color: colors.text }}>Dossier: {patient.id_dossier_medical || 'Non renseigne'}</Text>
               <Text style={{ color: colors.text }}>Groupe sanguin: {patient.groupe_sanguin || 'Non renseigne'}</Text>
-              <Text style={{ color: colors.text }}>Rendez-vous avec ce medecin: {rendezVous.length}</Text>
+              <Text style={{ color: colors.text }}>Rendez-vous affiches: {rendezVous.length}</Text>
             </View>
           </AppCard>
 
-          <AppCard title="Rendez-vous lies a ce medecin">
+          <AppCard title="Historique des rendez-vous">
             {rendezVous.length === 0 ? (
               <AppEmpty subtitle="Aucun rendez-vous lie a ce patient pour ce medecin." onRetry={fetchDossier} />
             ) : (

@@ -26,12 +26,14 @@ export function NotificationsScreen({ navigation }: any) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const fetchNotifications = useCallback(async (targetPage = 1) => {
     try {
       setLoading(true);
+      setError(null);
 
       const response = await notificationsApi.getMine({
         page: targetPage,
@@ -40,9 +42,10 @@ export function NotificationsScreen({ navigation }: any) {
 
       const payload = response.data as PaginatedResponse<Notification>;
       setItems(payload.data);
-      setPage(payload.meta.page);
-      setTotalPages(payload.meta.totalPages || 1);
+      setPage(payload.meta?.page || targetPage);
+      setTotalPages(payload.meta?.totalPages || 1);
     } catch {
+      setError('Impossible de charger les notifications.');
       Toast.error('Erreur', 'Impossible de charger les notifications.');
     } finally {
       setLoading(false);
@@ -132,7 +135,7 @@ export function NotificationsScreen({ navigation }: any) {
           rightActions={
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <PdfExportButton title="Export" rows={items} columns={pdfColumns} />
-              <AppButton label="Tout lire" size="sm" onPress={markAllAsRead} />
+              <AppButton label="Tout lire" size="sm" disabled={items.length === 0 || loading} onPress={markAllAsRead} />
             </View>
           }
         />
@@ -154,9 +157,11 @@ export function NotificationsScreen({ navigation }: any) {
             </Text>
           </View>
         ) : null}
+
+        {error ? <Text style={{ color: colors.danger, marginBottom: 12 }}>{error}</Text> : null}
       </>
     ),
-    [colors.text, colors.textMuted, colors.warning, isActiveSession, items, markAllAsRead, navigation, pdfColumns, subtitle]
+    [colors.danger, colors.text, colors.textMuted, colors.warning, error, isActiveSession, items, loading, markAllAsRead, navigation, pdfColumns, subtitle]
   );
 
   const footer = useMemo(
@@ -180,7 +185,7 @@ export function NotificationsScreen({ navigation }: any) {
         <NotificationsList
           notifications={items}
           loading={loading}
-          onRefresh={() => fetchNotifications(page)}
+          onRefresh={isActiveSession ? () => fetchNotifications(page) : undefined}
           ListHeaderComponent={header}
           ListFooterComponent={footer}
           onPressItem={(n) => {

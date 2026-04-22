@@ -140,5 +140,5 @@ export function getPdfExportErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return 'La generation ou le partage du PDF a échoué.';
+  return 'La generation ou le partage du PDF a echoue.';
 }
